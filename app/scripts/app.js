@@ -20,7 +20,7 @@ angular
     'LocalStorageModule'
   ])
   .config(['localStorageServiceProvider', function(localStorageServiceProvider) {
-    localStorageServiceProvider.setPrefix("ls");
+    localStorageServiceProvider.setPrefix('ls');
   }])
   .config(function ($routeProvider) {
     $routeProvider
