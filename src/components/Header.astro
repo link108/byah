@@ -1,0 +1,82 @@
+---
+const navItems = [
+  { href: "/", label: "Home" },
+  { href: "/blog", label: "Blog" },
+  { href: "/projects", label: "Projects" },
+  { href: "/links", label: "Links" },
+  { href: "/now", label: "Now" },
+  { href: "/about", label: "About" }
+];
+
+const { currentPath } = Astro.props;
+---
+
+<header class="site-header">
+  <div class="inner">
+    <a class="brand" href="/">BYAH</a>
+    <nav aria-label="Primary">
+      {
+        navItems.map((item, index) => (
+          <>
+            {index > 0 && <span class="sep"> / </span>}
+            <a
+              href={item.href}
+              aria-current={currentPath === item.href ? "page" : undefined}
+            >
+              {item.label}
+            </a>
+          </>
+        ))
+      }
+    </nav>
+  </div>
+</header>
+
+<style>
+  .site-header {
+    background: var(--bg);
+  }
+
+  .inner {
+    width: min(calc(100% - 2rem), var(--max-width));
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: baseline;
+    padding: 1rem 0 0;
+  }
+
+  .brand {
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  nav ul {
+    display: inline;
+  }
+
+  nav a {
+    color: var(--muted);
+    text-decoration: underline;
+    font-weight: 400;
+  }
+
+  nav a[aria-current="page"] {
+    color: var(--fg);
+  }
+
+  .sep {
+    color: var(--muted);
+  }
+
+  @media (max-width: 720px) {
+    .inner {
+      width: min(calc(100% - 1rem), var(--max-width));
+      flex-direction: column;
+      align-items: start;
+      padding-top: 0.75rem;
+    }
+  }
+</style>

@@ -1,0 +1,7 @@
+{
+  "title": "Nginx Beginner's Guide",
+  "url": "https://nginx.org/en/docs/beginners_guide.html",
+  "date": "2026-03-22",
+  "tags": ["nginx", "deployment"],
+  "note": "Good baseline documentation for serving static sites without unnecessary complexity."
+}

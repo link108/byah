@@ -1,0 +1,26 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PostCard from "../../components/PostCard.astro";
+import { getPublishedPosts } from "../../lib/content";
+
+const posts = await getPublishedPosts();
+---
+
+<BaseLayout
+  title="Blog"
+  description="Writing about software, systems, and ongoing experiments."
+  currentPath="/blog"
+>
+  <section>
+    <span class="eyebrow">Blog</span>
+    <h1>Writing</h1>
+    <p class="content-body">
+      Notes on engineering, decision-making, side projects, and the boring parts that
+      usually matter most.
+    </p>
+  </section>
+
+  <section class="entry-list">
+    {posts.map((post) => <PostCard post={post} />)}
+  </section>
+</BaseLayout>

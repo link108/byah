@@ -1,0 +1,26 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import LinkCard from "../components/LinkCard.astro";
+import { getLinks } from "../lib/content";
+
+const links = await getLinks();
+---
+
+<BaseLayout
+  title="Links"
+  description="A link log of references, tools, and interesting technical notes."
+  currentPath="/links"
+>
+  <section>
+    <span class="eyebrow">Links</span>
+    <h1>Link Log</h1>
+    <p class="content-body">
+      Things worth revisiting: essays, docs, tools, and technical notes with enough
+      signal to keep around.
+    </p>
+  </section>
+
+  <section class="entry-list">
+    {links.map((link) => <LinkCard link={link} />)}
+  </section>
+</BaseLayout>

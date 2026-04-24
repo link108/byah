@@ -1,0 +1,20 @@
+---
+import { formatDate } from "../lib/format";
+
+const { link } = Astro.props;
+---
+
+<article class="entry">
+  <div class="meta">
+    <time datetime={link.data.date.toISOString()}>{formatDate(link.data.date)}</time>
+  </div>
+  <h3><a href={link.data.url} target="_blank" rel="noreferrer">{link.data.title}</a></h3>
+  <p>{link.data.note}</p>
+  {link.data.tags.length > 0 && (
+    <ul class="tag-list" aria-label="Tags">
+      {link.data.tags.map((tag: string) => (
+        <li>{tag}</li>
+      ))}
+    </ul>
+  )}
+</article>

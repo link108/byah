@@ -1,0 +1,26 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import ProjectCard from "../../components/ProjectCard.astro";
+import { getProjects } from "../../lib/content";
+
+const projects = await getProjects();
+---
+
+<BaseLayout
+  title="Projects"
+  description="A running index of active, stable, and archived projects."
+  currentPath="/projects"
+>
+  <section>
+    <span class="eyebrow">Projects</span>
+    <h1>Build Log</h1>
+    <p class="content-body">
+      A compact index of tools, experiments, and long-lived systems. Some are active,
+      some are stable, and a few are left online mostly as evidence.
+    </p>
+  </section>
+
+  <section class="entry-list">
+    {projects.map((project) => <ProjectCard project={project} />)}
+  </section>
+</BaseLayout>

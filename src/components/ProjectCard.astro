@@ -1,0 +1,7 @@
+---
+const { project } = Astro.props;
+---
+
+<article class="entry project-entry">
+  <a href={`/projects/${project.slug}/`}>{project.data.title}</a>
+</article>

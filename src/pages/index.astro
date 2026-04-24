@@ -1,0 +1,25 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import ProjectCard from "../components/ProjectCard.astro";
+import { getProjects } from "../lib/content";
+import { siteConfig } from "../site.config";
+
+const projects = await getProjects();
+---
+
+<BaseLayout
+  title="Home"
+  description="Personal blog, project log, and current work."
+  currentPath="/"
+>
+  <section class="content-body">
+    <p>{siteConfig.homeIntro}</p>
+  </section>
+
+  <section class="section-rule">
+    <h1>Projects</h1>
+    <div class="entry-list">
+      {projects.map((project) => <ProjectCard project={project} />)}
+    </div>
+  </section>
+</BaseLayout>

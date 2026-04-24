@@ -1,0 +1,45 @@
+clone:
+  git:
+    image: woodpeckerci/plugin-git
+    settings:
+      token:
+        from_secret: github_token
+
+when:
+  branch: main
+  event: [push, pull_request]
+
+steps:
+  - name: install
+    image: node:20-alpine
+    commands:
+      - npm ci
+
+  - name: lint
+    image: node:20-alpine
+    commands:
+      - npm run lint
+
+  - name: typecheck
+    image: node:20-alpine
+    commands:
+      - npm run typecheck
+
+  - name: build
+    image: node:20-alpine
+    commands:
+      - npm run build
+
+  - name: docker-build
+    image: woodpeckerci/plugin-docker-buildx
+    when:
+      event: push
+    settings:
+      repo: link108/byah
+      tags:
+        - ${CI_COMMIT_SHA:0:7}
+        - latest
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password

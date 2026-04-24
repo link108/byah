@@ -1,0 +1,30 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Now"
+  description="Current work, interests, and what has my attention right now."
+  currentPath="/now"
+>
+  <section class="content-body">
+    <span class="eyebrow">Now</span>
+    <h1>Current Work</h1>
+    <p>
+      This page is a snapshot of what I am actively doing rather than a polished bio.
+      It changes when the work changes.
+    </p>
+    <h2>Primary Focus</h2>
+    <ul>
+      <li>Shipping small internal tools with less ceremony and tighter feedback loops.</li>
+      <li>Improving deployment safety with simpler build and release steps.</li>
+      <li>Publishing more technical notes instead of letting them die in private docs.</li>
+    </ul>
+    <h2>Side Interests</h2>
+    <ul>
+      <li>Static sites and content systems that stay readable after a year.</li>
+      <li>Unix-heavy workflows, terminal tooling, and durable local-first setups.</li>
+      <li>Design that feels intentional without looking over-produced.</li>
+    </ul>
+  </section>
+</BaseLayout>

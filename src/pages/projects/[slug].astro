@@ -1,0 +1,52 @@
+---
+import { getCollection, render } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+export async function getStaticPaths() {
+  const projects = await getCollection("projects");
+  return projects.map((project) => ({
+    params: { slug: project.slug },
+    props: { project }
+  }));
+}
+
+const { project } = Astro.props;
+const { Content } = await render(project);
+---
+
+<BaseLayout
+  title={project.data.title}
+  description={project.data.summary}
+  currentPath="/projects"
+>
+  <article>
+    <header class="content-body">
+      <span class="eyebrow">Project</span>
+      <h1>{project.data.title}</h1>
+      <div class="meta">
+        <span>Status: {project.data.status}</span>
+        {project.data.featured && <span>Featured</span>}
+      </div>
+      {project.data.stack.length > 0 && (
+        <ul class="stack-list" aria-label="Technology stack">
+          {project.data.stack.map((item: string) => (
+            <li>{item}</li>
+          ))}
+        </ul>
+      )}
+      {project.data.links.length > 0 && (
+        <p style="margin-top: 1rem;">
+          {project.data.links.map((link: { label: string; url: string }, index: number) => (
+            <>
+              {index > 0 && <span aria-hidden="true"> / </span>}
+              <a href={link.url} target="_blank" rel="noreferrer">{link.label}</a>
+            </>
+          ))}
+        </p>
+      )}
+    </header>
+    <div class="content-body section-rule" style="margin-top: 1.5rem;">
+      <Content />
+    </div>
+  </article>
+</BaseLayout>
