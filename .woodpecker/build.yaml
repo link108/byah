@@ -43,3 +43,24 @@ steps:
         from_secret: docker_username
       password:
         from_secret: docker_password
+
+  - name: deploy-to-homelab
+    image: alpine:3.19
+    when:
+      event: push
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
+    commands:
+      - apk add --no-cache git yq github-cli
+      - SHORT_SHA=$(echo $CI_COMMIT_SHA | cut -c1-7)
+      - "git clone https://x-access-token:$GITHUB_TOKEN@github.com/link108/homelab.git /tmp/homelab"
+      - cd /tmp/homelab
+      - "git config user.email woodpecker@ci.byah.org"
+      - "git config user.name Woodpecker CI"
+      - git checkout -b deploy/byah-$SHORT_SHA
+      - ./scripts/request-deploy.sh byah $SHORT_SHA
+      - git add -A
+      - 'git commit -m "deploy(byah): $SHORT_SHA"'
+      - git push -u origin deploy/byah-$SHORT_SHA
+      - 'gh pr create --repo link108/homelab --title "deploy(byah): $SHORT_SHA" --body "Auto-deploy from byah CI pipeline" --head deploy/byah-$SHORT_SHA'
