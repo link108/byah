@@ -5,8 +5,8 @@ export const siteConfig = {
   siteUrl: "https://example.com",
   accentColor: "#d94f1d",
   homeIntro:
-    "I am a product-minded engineer focused on systems that are useful, inspectable, and small enough to understand. This site is a running log of work, notes, and projects.",
-  bio: "I build software, document what I learn, and leave rough edges visible.",
+    "This is where I keep track of things I’m building, breaking, and thinking about.",
+  bio: "I like to tinker — with code, hardware, and ideas. I’m especially interested in where technology overlaps with art and philosophy, and what comes out of that.",
   email: "hello@example.com",
   githubUrl: "https://github.com/yourname"
 };
