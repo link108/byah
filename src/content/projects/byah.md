@@ -1,7 +1,7 @@
 ---
 title: byah
 status: active
-summary: Static personal site built with Astro, Markdown content collections, and a minimal Docker/nginx deploy path.
+summary: Personal site built with Astro, Markdown content collections, and a minimal Docker/nginx deploy path.
 stack:
   - Astro
   - TypeScript
@@ -13,35 +13,12 @@ links:
 featured: false
 ---
 
-This repo is the site you are looking at now.
+**tl;dr**: I built this to have a personal site that feels like editing a few text files, not maintaining a whole publishing system.
 
-It keeps content in the repo, builds to static files, and stays intentionally small so it
-is easy to edit and redeploy without a CMS or database.
+I wanted a place for project notes, blog posts, a now page, and a small pile of links without dragging in a CMS or a backend I would eventually resent.
 
-## What it is
+It’s Astro, Markdown/MDX, and plain CSS. Most of the content just lives in collections, which means adding something new is basically writing a file and rebuilding the site. That is much closer to how I want a personal site to work.
 
-`byah` is the pared-down personal site in this repo: a static Astro site with Markdown and
-MDX content, light structure, and a Docker/nginx deploy path. The design direction has
-been deliberately pulled toward plain text and basic HTML behavior rather than a polished
-app-shell feel.
+The part I like most is what is missing. There is no database, no auth, and no admin UI. The deploy path is intentionally boring too: build static files, serve them with nginx, move on. I think personal sites usually get worse when they start acting like platforms.
 
-That simplicity is the point. The site is meant to be edited directly in the repo,
-rebuilt, and redeployed without introducing a database, CMS, auth layer, or runtime
-backend that would make a personal publishing setup heavier than it needs to be.
-
-## How it is organized
-
-The content model is driven by Astro content collections. Blog posts, project pages, and
-links all live under `src/content`, and the route structure is generated from those files.
-That gives the site a clear separation between authored content and layout code without
-requiring any admin interface.
-
-The deployment path is equally small: build static files, copy them into an nginx image,
-and serve them. There is also a small Woodpecker pipeline and `justfile` support around
-the project, which keeps local and CI workflows aligned.
-
-## Why it is interesting
-
-This repo is less about technical novelty and more about restraint. It is a useful example
-of what a self-hosted personal site looks like when the design goal is “easy to modify and
-hard to break” instead of “feature-rich publishing platform.”
+I’m trying to keep the whole thing light enough that I can come back to it after a few months, remember how it works, and change it without friction. Some of it is still rough, but I’d rather have that than something polished and annoying to maintain.

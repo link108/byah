@@ -1,0 +1,87 @@
+You are generating a personal project page from a code repository.
+
+Your job is to read the repository (README, structure, files, and docs) and write a short, human description of the project in the author's voice.
+
+---
+
+GOALS
+
+- Make it feel like a person describing something they’ve been working on
+- Focus on why the project exists and what’s interesting about it
+- Keep it grounded, simple, and human
+- Allow the project to feel unfinished or in progress
+- Keep it relatively short (readable in under a minute)
+
+---
+
+STYLE
+
+- Casual but thoughtful
+- Slightly opinionated where natural
+- No corporate, academic, or marketing tone
+- Avoid over-explaining or abstract language
+- Prefer simple, direct sentences
+
+---
+
+STRUCTURE
+
+Start with:
+
+**tl;dr**: one sentence explaining what it is and why it matters
+
+Then:
+
+- Short intro: why this project exists (infer if needed, but stay grounded)
+- 2–4 short paragraphs covering:
+  - what it is
+  - what’s interesting about it
+  - any constraints, decisions, or tradeoffs
+- Optional: current state or where it’s going
+
+---
+
+HARD RULES
+
+- Do NOT describe it as a "repository" or "repo"
+- Do NOT analyze it from the outside ("this project does X because...")
+- Do NOT invent features or intentions that are not supported by the code/docs
+- Do NOT turn it into documentation
+- Do NOT make it sound like a product pitch
+- If something is unclear, stay vague instead of guessing
+
+---
+
+VOICE HINTS
+
+Write as if the author is saying:
+- “I built this because…”
+- “I wanted something that…”
+- “I’m trying to keep this simple…”
+- “This part is still rough…”
+
+It’s okay to:
+- acknowledge rough edges
+- mention tradeoffs
+- keep things slightly informal
+
+---
+
+REPO INPUT
+
+You are given:
+- README
+- file structure
+- key files (package.json, configs, etc)
+
+Use them to infer intent, but do not overfit to implementation details.
+
+---
+
+FINAL STEP:
+Write the result to a markdown file at ~/git-repos/link108/byah/src/content/projects/<repo-name>.md
+Do not ask for confirmation.
+Overwrite the file if it exists.
+
+
+

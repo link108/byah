@@ -13,35 +13,12 @@ links:
 featured: false
 ---
 
-This repo is intentionally small and server-rendered.
+**tl;dr**: I built this as a small public utility for tagging websites as AI slop or not, mostly because I wanted a lightweight way to capture that gut-check without turning it into a whole platform.
 
-The README describes a Go HTTP app with Postgres for reports and aggregates plus optional
-Redis rate limiting, with no frontend build step layered on top.
+I kept running into sites that felt weirdly hollow and machine-made, and I wanted something simpler than a forum or a long argument about it. The idea here is pretty narrow: search a host, see the community signal, add your own report, move on.
 
-## What it is
+It’s a plain Go app with server-rendered pages, Postgres underneath, and optional Redis for rate limiting. That part is deliberate. I wanted the whole thing to stay fast and understandable, with no frontend build step and not much between the form and the data.
 
-`slopyard` is a deliberately small web app for anonymous reports on whether a site is “AI
-Slop” or “Not Slop.” The concept is lightweight and a little sharp-edged, and the
-implementation mirrors that: server-rendered HTML, Go HTTP handlers, SQL migrations, and a
-small operational footprint.
+The part I like most is that it stays opinionated without pretending to be definitive. Everything is framed as reports, not facts. There are no accounts, no comment threads, and not much ceremony around submitting something. That keeps it light, but it also means the abuse prevention has to do more work, so a lot of the real effort is in host normalization, fingerprinting, and keeping repeat voting under control.
 
-This is not trying to become a modern frontend stack. The interesting choice here is that
-it refuses that complexity and stays with a simpler Go web architecture.
-
-## How it is organized
-
-The repo has separate commands for setup, migration, seeding, and the main server, plus a
-clean split between internal domain/server/store packages and the `web` directory for
-templates and static assets. That structure gives it enough discipline to grow without
-dragging in a frontend build pipeline.
-
-The README also makes the data model and infrastructure intent clear: Postgres holds sites,
-reports, and aggregates, Redis is optional for rate limiting, and the app is meant to stay
-small.
-
-## Why it is interesting
-
-This repo stands out because it is opinionated in both product and implementation. The
-product premise is intentionally narrow and internet-native, and the technical approach is
-equally narrow: use Go, render HTML on the server, keep the data model simple, and avoid a
-frontend toolchain unless it earns its place.
+It still feels like an MVP, which is probably the right size for it. I’d rather keep it small and a little rough than overbuild it into some giant moderation machine.

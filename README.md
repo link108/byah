@@ -56,5 +56,4 @@ Add a new link:
 ## Notes
 
 - Update `src/site.config.ts` to change the site title, author, description, base URL, accent color, email, and GitHub link.
-- RSS is generated at `/rss.xml`.
 - Draft blog posts are excluded from generated blog pages and indexes.

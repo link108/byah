@@ -1,10 +1,11 @@
 ---
 title: agents
 status: active
-summary: Devcontainer and CLI tooling for running coding agents with host-backed credentials and local workflow support.
+summary: Local CLI and server tooling for running coding agents through a staged, workspace-based workflow.
 stack:
   - TypeScript
   - tsx
+  - React
   - Dev Containers
 links:
   - label: Source
@@ -12,38 +13,12 @@ links:
 featured: false
 ---
 
-This repo is focused on agent-oriented local development rather than a user-facing app.
+**tl;dr**: I built this to make coding agents feel more like a normal local development tool instead of a one-off demo glued to a chat window.
 
-It includes a TypeScript CLI and a devcontainer setup that reuses host Claude credentials
-inside the container so the environment stays close to the machine it runs on.
+I wanted something that could take a real task, spin up a workspace, run through a plan/implement/verify/review loop, and leave behind enough logs and state that I could tell what actually happened.
 
-## What it is
+At the core, this is a CLI and small local server for managing agent-driven tasks. A task gets its own workspace and branch, moves through explicit phases, and can be watched from the terminal or a lightweight web UI. I like that the flow is opinionated instead of magical. If an agent is going to touch code, I want the steps to be visible.
 
-`agents` reads like a working environment for experimenting with coding agents as an
-everyday development tool. It is not just a thin CLI wrapper. The repo also includes
-task documents, prompt files, and a devcontainer setup that tries to make the agent
-workflow portable without giving up access to host-authenticated tools.
+A big part of the project is dealing with the boring operational stuff that usually gets skipped. There is work here around devcontainers, host-backed auth, log streaming, worker resilience, and keeping the CLI thin enough that the server owns the messy parts. That is the stuff that starts to matter as soon as you try to use agents repeatedly instead of treating them like a novelty.
 
-That matters because most agent setups break down at the edges: credentials live on the
-host, shells behave differently in containers, and session state gets fragmented. This
-repo is clearly aimed at tightening those seams so the agent environment can run with less
-manual setup and less duplicated configuration.
-
-## How it is organized
-
-The TypeScript CLI sits alongside a fairly opinionated task library. There are markdown
-task documents for things like shell completions, streaming logs, TUI work, resilient
-workers, and codebase audits. That suggests the repo is being used both as executable
-tooling and as an operating notebook for the kinds of features the agent system needs.
-
-The devcontainer side is equally important. The README explains how host Claude
-credentials are exported into Linux container paths, which is a pragmatic solution to the
-usual OAuth-and-Keychain mismatch between macOS hosts and Linux containers.
-
-## Why it is interesting
-
-A lot of “AI coding” repos stop at demo quality. This one looks more like internal tooling
-for making agent workflows survivable in normal development. The interesting part is not
-the model integration by itself. It is the surrounding work: task orchestration, shell
-behavior, auth reuse, and the rough operational edges that show up once you try to use an
-agent every day instead of once in a while.
+I’m also trying to keep it simple. Most of it is plain TypeScript, some React for the TUI, and a lot of markdown task specs that double as a backlog. It is still rough in places, and some of the interesting work is clearly about making the system survive restarts, retries, and half-finished tasks without turning into a pile of hidden state.
