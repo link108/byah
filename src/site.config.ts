@@ -1,6 +1,6 @@
 export const siteConfig = {
   title: "BYAH",
-  description: "A lightweight personal blog, project log, and now page.",
+  description: "A lightweight personal blog and project log.",
   author: "Your Name",
   siteUrl: "https://example.com",
   accentColor: "#d94f1d",

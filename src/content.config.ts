@@ -30,15 +30,4 @@ const projects = defineCollection({
   })
 });
 
-const links = defineCollection({
-  type: "data",
-  schema: z.object({
-    title: z.string(),
-    url: z.string().url(),
-    date: z.coerce.date(),
-    tags: z.array(z.string()).default([]),
-    note: z.string()
-  })
-});
-
-export const collections = { blog, projects, links };
+export const collections = { blog, projects };

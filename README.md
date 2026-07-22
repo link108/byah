@@ -48,11 +48,6 @@ Add a new project:
 1. Create `src/content/projects/my-project.md`.
 2. Add `title`, `status`, `summary`, `stack`, `links`, and `featured` in frontmatter.
 
-Add a new link:
-
-1. Create `src/content/links/my-link.json`.
-2. Add `title`, `url`, `date`, `tags`, and `note`.
-
 ## Notes
 
 - Update `src/site.config.ts` to change the site title, author, description, base URL, accent color, email, and GitHub link.
