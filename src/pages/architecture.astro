@@ -1,0 +1,58 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Architecture"
+  description="How the workstation, project repos, CI, and cluster fit together."
+  currentPath="/architecture"
+>
+  <section class="content-body">
+    <span class="eyebrow">Overview</span>
+    <h1>How It Fits Together</h1>
+    <p>
+      Most of what I build goes through the same small pipeline. Here's the shape of it,
+      from my laptop to a live URL.
+    </p>
+
+    <pre><code>┌─────────────────┐
+│    dev-setup     │  workstation — Nix flakes, Home Manager, Homebrew
+└────────┬─────────┘
+         │ write, build, commit
+         v
+┌─────────────────┐
+│  project repos   │  byah, deckforge, landlordlog, collections,
+│                  │  reliquary-works, cutty-bangerz, slopyard,
+│                  │  choose-your-own-game-theory, and others
+└────────┬─────────┘
+         │ CI — test, build image, push
+         v
+┌─────────────────┐
+│     homelab      │  k3s GitOps source of truth
+└────────┬─────────┘
+         │ reconciles on commit
+         v
+┌─────────────────┐
+│   k3s cluster    │  Hetzner VPS — ingress, secrets, backing services
+└────────┬─────────┘
+         │ serves
+         v
+   live sites (byah.org, deckforge.byah.org, drank.byah.org, ...)</code></pre>
+
+    <p>
+      <a href="/projects/dev-setup/">dev-setup</a> is the machine I write everything on — a
+      Nix-managed macOS environment, not something that ever gets deployed. Each project
+      lives in its own repo with its own stack, but they share the same path out: CI tests
+      the code, builds a container image, and pushes it. <a href="/projects/homelab/">homelab</a>
+      is where that image becomes a running thing — it holds the k3s manifests and pins the
+      image tags, and the cluster reconciles to match on commit. From there, ingress and DNS
+      turn it into a URL you can actually visit.
+    </p>
+    <p>
+      Not everything runs through this loop. <a href="/projects/agents/">agents</a>,
+      <a href="/projects/code-practice/">code-practice</a>, and
+      <a href="/projects/project-planner/">project-planner</a> are local tools I never
+      deploy — they're meant to be run, not visited.
+    </p>
+  </section>
+</BaseLayout>
