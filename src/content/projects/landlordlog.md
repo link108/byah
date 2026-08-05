@@ -9,6 +9,8 @@ stack:
   - PostgreSQL
   - Stripe
 links:
+  - label: Live
+    url: https://landlordlog.com
   - label: Source
     url: https://github.com/link108/landlordlog
 featured: false

@@ -9,6 +9,8 @@ stack:
   - PostgreSQL
   - Docker
 links:
+  - label: Live
+    url: https://game-theory.byah.org
   - label: Source
     url: https://github.com/link108/choose-your-own-game-theory
 featured: false

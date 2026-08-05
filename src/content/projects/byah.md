@@ -8,6 +8,8 @@ stack:
   - Markdown
   - Docker
 links:
+  - label: Live
+    url: https://byah.org
   - label: Source
     url: https://github.com/link108/byah
 featured: false

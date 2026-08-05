@@ -1,7 +1,16 @@
 ---
 const { project } = Astro.props;
+const liveLink = project.data.links.find(
+  (link: { label: string; url: string }) => link.label === "Live"
+);
 ---
 
 <article class="entry project-entry">
   <a href={`/projects/${project.slug}/`}>{project.data.title}</a>
+  {liveLink && (
+    <>
+      {" "}<span aria-hidden="true">/</span>{" "}
+      <a href={liveLink.url} target="_blank" rel="noreferrer">Live</a>
+    </>
+  )}
 </article>

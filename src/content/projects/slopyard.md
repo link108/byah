@@ -8,6 +8,8 @@ stack:
   - Redis
   - SQL
 links:
+  - label: Live
+    url: https://slopyard.byah.org
   - label: Source
     url: https://github.com/link108/slopyard
 featured: false
