@@ -21,6 +21,10 @@ const posts = await getPublishedPosts();
   </section>
 
   <section class="entry-list">
-    {posts.map((post) => <PostCard post={post} />)}
+    {posts.length > 0 ? (
+      posts.map((post) => <PostCard post={post} />)
+    ) : (
+      <p class="content-body">Nothing published here yet.</p>
+    )}
   </section>
 </BaseLayout>
