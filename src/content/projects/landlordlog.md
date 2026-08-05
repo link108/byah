@@ -22,6 +22,23 @@ I wanted something that felt more like a dependable record than a “platform.�
 
 At this point it has real shape. There’s a signed-in app for tracking rent, maintenance, summaries, maps, late fees, notes, photos, and documents, plus all the less glamorous plumbing underneath like auth, billing, email, background jobs, storage, and tests. A lot of the work here is really about making the operational stuff solid enough that the domain features can stay simple.
 
+```text
+      landlord
+          |
+          v
+      property ---> units
+          |            |
+          v            v
+   rent tracking   maintenance
+          |            |
+          +-----+------+
+                v
+         monthly summary
+
+ platform underneath: auth, billing (Stripe),
+ storage (S3), email, background jobs
+```
+
 The part I like most is that I’ve tried to keep the scope opinionated. Photos are for property condition and maintenance, not a generic file dump. The UX is meant to be calm and pretty boring on purpose. I’m not trying to build software for huge property managers with twenty dashboards and a fake sense of productivity.
 
 It’s still uneven, which feels honest. The public-facing homepage is basically a waitlist page, while the actual app has more of the real product thinking in it. Some features are clearly further along than others, but that is part of the project: I’d rather build the useful, durable parts first than make it look finished before it is.

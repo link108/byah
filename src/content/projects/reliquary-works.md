@@ -24,4 +24,21 @@ You configure a sleeved-card deckbox — footprint, capacity, surface finish, bo
 
 The manufacturing side runs isolated on purpose. CadQuery generation happens in its own environment, talks to the web app over an authenticated worker, and keeps an idempotent job ledger so a retried request can't double-manufacture an order. Every finished job produces a manifest with the catalog version, resolved dimensions, and checksums, so I can trust a file actually came from the configuration it claims to.
 
+```text
+ browser (R3F preview)
+          |
+          v
+ configuration + Stripe checkout
+          |
+          v
+    job ledger (idempotent)
+          |
+          v
+ CadQuery worker (isolated env)
+          |
+          v
+ STL/STEP files + manifest.json
+ (checksums, catalog version)
+```
+
 If Stripe isn't configured, checkout falls back to a clearly labeled demo confirmation instead of silently taking payment — a sensible default while I'm still validating tolerances on the physical side. This is the one project here where the code has to answer to a physical object at the end, not just a database row, and that constraint shows up everywhere in how careful the catalog data has to be.

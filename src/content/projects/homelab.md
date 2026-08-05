@@ -20,6 +20,24 @@ I wanted one place for the unglamorous infrastructure work: cluster layout, app 
 
 Most of it is a GitOps-style k3s layout with separate cluster entrypoints, shared infra, and app overlays. What makes it feel useful to me is that it does not stop at Kubernetes YAML. It also includes the day-to-day ops glue around it: bootstrapping a Hetzner VPS, getting k3s running, wiring in Cloudflare and Tailscale, and keeping deploys simple enough that I can still tell what is happening.
 
+```text
+ k3s/clusters/hetzner  (entrypoint)
+          |
+   +------+------+
+   |             |
+   v             v
+ k3s/infra    k3s/apps
+ (coredns,    (byah, deckforge,
+  woodpecker,  landlordlog, ...)
+  cloudflared)
+          |
+          v
+   kubectl apply -k
+          |
+          v
+  Hetzner VPS (k3s node)
+```
+
 I’ve been trying to keep the automation opinionated but not magical. There’s a repeatable converge path for the VPS, but the cluster apply is still pretty manual on purpose. Part of that is caution, and part of it is taste. I’d rather have a setup that is a little rough than one that hides too much when something breaks.
 
 There are also a few choices in here that feel very personal-homelab to me, like running Postgres and Redis on the host and exposing them back into the cluster instead of pretending every layer needs to be containerized. It is not the cleanest model in the world, but it keeps the stack smaller and matches what I actually need.

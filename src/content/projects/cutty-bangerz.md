@@ -22,4 +22,20 @@ The idea is mobile-first and a little silly on purpose — generate me a drink �
 
 Getting new products into the catalog is its own small pipeline. There's a private admin crawler that reads structured commerce data, honors `robots.txt`, and stays on the retailer's own domain, plus a Walmart Marketplace API adapter for retailers that support it. Nothing reaches the public catalog without going through review first — I didn't want the ingestion side able to publish anything on its own.
 
+```text
+ catalog (200+ products)
+        |
+        v
+ seed + inspiration pack --> DeepSeek (4 candidates)
+                                    |
+                                    v
+                        rank (variety, novelty)
+                                    |
+                                    v
+                weighted pick --> recipe (seed + scores saved)
+
+ admin crawler --> review queue --> catalog
+    (nothing publishes without review)
+```
+
 Community features stay deliberately light: an anonymous per-session rating, and human recipe submissions run through the same validation as generated ones. Admin access has no public link at all — sign-in is allowlisted to a single email via a magic link, and the app and its background worker deploy as the same image, split across a web process and a k3s worker.

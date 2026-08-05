@@ -17,6 +17,20 @@ featured: false
 
 The core loop is narrow on purpose: feed it a `project-overview.md`, run a structured decomposition, and it emits a full planning bundle — projects, subprojects, tasks, prompts, and run artifacts — under `project-bundles/<NN>-<slug>/`. Because it's just files, I can version it, rerun it, and compare bundles across iterations instead of losing the plan in chat history.
 
+```text
+ project-overview.md
+          |
+          v
+ decomposition (prompt library)
+          |
+          v
+ project-bundles/NN-slug/
+    projects/
+    subprojects/
+    tasks/
+    prompts + run artifacts
+```
+
 The prompt library is really the product here — templates for breaking down an overview, inventorying a repo, detailing and finalizing subprojects and tasks, and reviewing the result. It's provider-agnostic too: Anthropic's API or CLI runners like Claude, Opencode, and Codex can all drive it, since the planning process is what I actually care about, not which model executes it.
 
 It's a modest tool by design — Python, a CLI, tests, and emitted bundles, nothing that needs a server. After a run, the original overview gets moved into the bundle, so every run leaves behind a clean snapshot instead of an ambiguous root directory.

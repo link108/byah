@@ -17,4 +17,17 @@ featured: false
 
 It's a small Typer-based CLI (`lc`) for fetching, organizing, and running practice problems without leaving the terminal. Each problem gets its own folder — `0001-two-sum`, `0002-add-two-numbers`, and so on — so I end up with an actual workspace instead of a pile of scratch files.
 
+```text
+ lc fetch <slug>
+        |
+        v
+    LeetCode
+        |
+        v
+ problems/000N-slug/
+        |
+        v
+ edit + lc run (local loop)
+```
+
 The dependency list is intentionally tiny: Typer for the CLI, `httpx` for network calls, Rich for output. I didn't want this to become its own project to maintain — just something that removes friction from a habit I actually want to keep up.

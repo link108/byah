@@ -17,6 +17,26 @@ featured: false
 
 I wanted something more reliable than a pile of dotfiles, but less doctrinaire than forcing every part of a laptop through one tool. So the shared CLI tools, shell config, editor setup, and dev shells live in Nix and Home Manager, while GUI apps stay in Homebrew where that still feels simpler.
 
+```text
+          flake.nix
+              |
+      +-------+-------+
+      |               |
+      v               v
+ Home Manager      Homebrew
+ (shell, cli,      (GUI apps)
+  editor, dev
+  shells)
+      |               |
+      +-------+-------+
+              |
+              v
+      bootstrap.sh (rerunnable)
+              |
+              v
+     reproducible Mac
+```
+
 What makes it interesting to me is that it treats the machine itself as part of the work. There’s a bootstrap script I can rerun, a few focused dev shells for different kinds of projects, and just enough host-specific config for an older Intel Mac without turning the whole thing into a mess of special cases.
 
 I’m trying to keep the tradeoffs honest. I don’t really care about purity for its own sake here. I care that I can get a shell I like, open Neovim or tmux, install the boring everyday tools, and end up with a setup that feels familiar again without too much ceremony.
