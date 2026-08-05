@@ -11,42 +11,55 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     <span class="eyebrow">Overview</span>
     <h1>How It Fits Together</h1>
     <p>
-      Most of what I build goes through the same small pipeline. Here's the shape of it,
-      from my laptop to a live URL.
+      Most of what I build goes through the same small pipeline. But "the cluster" is
+      actually two clusters on two very different machines, plus a laptop that does nothing
+      but run an AI agent with its own scoped access to both. Here's the real shape of it.
     </p>
 
-    <pre><code>┌─────────────────┐
-│    dev-setup     │  workstation — Nix flakes, Home Manager, Homebrew
-└────────┬─────────┘
-         │ write, build, commit
-         v
-┌─────────────────┐
-│  project repos   │  byah, deckforge, landlordlog, collections,
-│                  │  reliquary-works, cutty-bangerz, slopyard,
-│                  │  choose-your-own-game-theory, and others
-└────────┬─────────┘
-         │ CI — test, build image, push
-         v
-┌─────────────────┐
-│     homelab      │  k3s GitOps source of truth
-└────────┬─────────┘
-         │ reconciles on commit
-         v
-┌─────────────────┐
-│   k3s cluster    │  Hetzner VPS — ingress, secrets, backing services
-└────────┬─────────┘
-         │ serves
-         v
-   live sites (byah.org, deckforge.byah.org, drank.byah.org, ...)</code></pre>
+    <pre><code>   dev-setup (laptop)
+        |
+        | write, build, commit
+        v
+   GitHub  (app repos + homelab)
+        |
+        | CI: test, build image, push, open deploy PR
+        v
+   homelab repo ----------&gt; Woodpecker (on hetzner)
+                                  |
+                                  | kubectl apply -k, per app
+                                  v
+        +---------------------------------------------------+
+        |                Tailscale tailnet                    |
+        |                                                      |
+        v                                                      v
+   hetzner (Hetzner VPS, k3s)                     openclaw-node (Mac, k3s)
+   byah · deckforge · landlordlog                  Woodpecker build agent
+   cutty-bangerz · slopyard                        BuildKit · Grafana mirror
+   game-theory-sim · reliquary-works
+   host Postgres/Redis · Cloudflare tunnel
+        ^
+        | ssh, dispatcher-restricted commands only
+        |
+   openclaw-gateway (headless Linux laptop)
+   OpenClaw agent + 6 MCP servers + Slack</code></pre>
 
     <p>
-      <a href="/projects/dev-setup/">dev-setup</a> is the machine I write everything on — a
-      Nix-managed macOS environment, not something that ever gets deployed. Each project
-      lives in its own repo with its own stack, but they share the same path out: CI tests
-      the code, builds a container image, and pushes it. <a href="/projects/homelab/">homelab</a>
-      is where that image becomes a running thing — it holds the k3s manifests and pins the
-      image tags, and the cluster reconciles to match on commit. From there, ingress and DNS
-      turn it into a URL you can actually visit.
+      <a href="/projects/dev-setup/">dev-setup</a> is the machine I write everything on —
+      nothing here ever gets deployed itself. Each project lives in its own repo with its
+      own stack, but they share the same path out: CI tests the code, builds a container
+      image, pushes it, and opens a deploy PR against <a href="/projects/homelab/">homelab</a>,
+      which holds the k3s manifests and pins the image tags. Woodpecker auto-merges that
+      PR and applies it to <strong>hetzner</strong>, the production cluster.
+    </p>
+    <p>
+      <strong>openclaw-node</strong> is a second, independent k3s cluster — a 2017 MacBook
+      running Rancher Desktop — that exists purely to take CI load off the VPS: it runs its
+      own Woodpecker build agent and a BuildKit daemon. And
+      <strong>openclaw-gateway</strong> isn't a cluster at all — it's a dedicated Linux box
+      running a self-hosted AI agent (OpenClaw) that operates both clusters, with
+      deliberately different levels of trust for each. That part — the agent layer, the
+      RBAC split, how an autonomous agent gets to touch production without a blank check —
+      is its own page: <a href="/development">how I actually run this</a>.
     </p>
     <p>
       Not everything runs through this loop. <a href="/projects/agents/">agents</a>,
