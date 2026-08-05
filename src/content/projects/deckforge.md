@@ -22,9 +22,8 @@ database rather than an AI chat window that happens to talk about cards. It sear
 32k+ Scryfall-synced cards with full-text and filter support, builds Commander decks
 through an AI agent that is only allowed to reference cards it actually retrieved, and
 backs every legal-deck claim with a deterministic rules engine rather than trusting the
-model's judgment. The README marks it "MVP complete," with all five planned phases —
-card data, decks and legality, AI agent and review, affiliates, and
-collections/simulations — implemented.
+model's judgment. All five planned phases are live: card data, decks and legality, AI
+agent and review, affiliates, and collections/simulations.
 
 Saving a deck does not require an account: the editor, importer, and AI chat all
 auto-assign an anonymous, cookie-scoped guest identity that shows up under "My decks"
@@ -54,13 +53,12 @@ cards so a deck page can show exactly what's missing and what it costs to comple
 The app is a modular monolith: domain logic lives in `src/modules/*` (cards, decks,
 legality, deck-analysis, deck-strategy, chat, users, collections, pricing, affiliates,
 simulations), each exposing a public API via `index.ts`, with routes and server actions
-as thin Zod-validated adapters that never let modules import UI. The architecture ADR
-lays out explicit guarantees: the AI only sees compact results from typed tools querying
-the local database, a pure `RuleSet` engine gates every save so the agent cannot bypass
-legality, games and formats are data rows keyed to rule-set implementations for future
-extensibility, and guest identity is handled with a single `df_guest` cookie mapped
-lazily to a real (passwordless) `User` row so guest and signed-in ownership share the
-same code paths.
+as thin Zod-validated adapters that never let modules import UI. The AI only sees compact
+results from typed tools querying the local database, a pure `RuleSet` engine gates every
+save so the agent cannot bypass legality, games and formats are data rows keyed to
+rule-set implementations for future extensibility, and guest identity is handled with a
+single `df_guest` cookie mapped lazily to a real (passwordless) `User` row so guest and
+signed-in ownership share the same code paths.
 
 The AI provider itself is an abstraction over the Anthropic API with a deterministic
 mock fallback when no key is configured, which keeps local development and CI from

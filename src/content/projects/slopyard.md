@@ -15,35 +15,23 @@ links:
 featured: false
 ---
 
-This repo is intentionally small and server-rendered.
+`slopyard` is a deliberately small web app for anonymous reports on whether a site is "AI
+Slop" or "Not Slop." The idea is lightweight and a little sharp-edged, and the
+implementation matches it: server-rendered HTML, Go HTTP handlers, SQL migrations, and a
+small operational footprint — no frontend build step, no modern frontend stack, just a
+plain Go web architecture that refuses that complexity on purpose.
 
-The README describes a Go HTTP app with Postgres for reports and aggregates plus optional
-Redis rate limiting, with no frontend build step layered on top.
+## How It's Built
 
-## What it is
+Separate commands handle setup, migration, seeding, and running the server, with a clean
+split between internal domain/server/store packages and a `web` directory for templates
+and static assets — enough structure to grow without dragging in a frontend build
+pipeline. Postgres holds sites, reports, and aggregates; Redis is optional, used only for
+rate limiting.
 
-`slopyard` is a deliberately small web app for anonymous reports on whether a site is “AI
-Slop” or “Not Slop.” The concept is lightweight and a little sharp-edged, and the
-implementation mirrors that: server-rendered HTML, Go HTTP handlers, SQL migrations, and a
-small operational footprint.
+## Why It's Interesting
 
-This is not trying to become a modern frontend stack. The interesting choice here is that
-it refuses that complexity and stays with a simpler Go web architecture.
-
-## How it is organized
-
-The repo has separate commands for setup, migration, seeding, and the main server, plus a
-clean split between internal domain/server/store packages and the `web` directory for
-templates and static assets. That structure gives it enough discipline to grow without
-dragging in a frontend build pipeline.
-
-The README also makes the data model and infrastructure intent clear: Postgres holds sites,
-reports, and aggregates, Redis is optional for rate limiting, and the app is meant to stay
-small.
-
-## Why it is interesting
-
-This repo stands out because it is opinionated in both product and implementation. The
-product premise is intentionally narrow and internet-native, and the technical approach is
-equally narrow: use Go, render HTML on the server, keep the data model simple, and avoid a
-frontend toolchain unless it earns its place.
+This one stands out because it's opinionated in both product and implementation. The
+premise is narrow and internet-native, and the technical approach matches: Go, HTML
+rendered on the server, a simple data model, and no frontend toolchain unless it earns its
+place.

@@ -14,64 +14,51 @@ links:
 featured: false
 ---
 
-`homelab` is the operational gravity well for the rest of the workspace. It is the repo
-where application delivery stops being an abstract promise and turns into cluster layout,
+`homelab` is the operational backbone behind everything else here — the repo where
+application delivery stops being an abstract promise and turns into cluster layout,
 bootstrap flows, ingress, secrets, CI exposure, backing services, and deploy sequencing.
-That makes it fundamentally different from the product repos. It is not trying to model a
-user-facing domain. It is trying to make the environment itself legible and repeatable.
+It's not modeling a user-facing domain; it's making the environment itself legible and
+repeatable.
 
-The README sets that tone immediately: this is a k3s GitOps layout organized around
-cluster entrypoints, shared infrastructure, and app manifests, with `k3s/clusters/homelab`
-as the source-of-truth entrypoint. That is the right level of abstraction. Instead of
-burying everything in one pile of YAML, the repo separates where a cluster starts, what
-infrastructure is shared, and what apps get laid on top.
-
-The repo also sits at an interesting transition point between “manual homelab” and
-“something closer to disciplined infrastructure.” The docs cover manual apply paths, Flux
-bootstrap, VPS convergence, Cloudflare access, and day-to-day deploy behavior. In other
-words, this is not only a manifest repo. It is also a record of the operational workflows
-needed to get and keep the environment in shape.
+It's a k3s GitOps layout organized around cluster entrypoints, shared infrastructure, and
+app manifests, with `k3s/clusters/homelab` as the source-of-truth entrypoint — cluster
+startup, shared infrastructure, and the apps running on top stay as separate, legible
+layers instead of one pile of YAML. It also sits at an interesting transition point
+between "manual homelab" and disciplined infrastructure, covering manual apply paths, Flux
+bootstrap, VPS convergence, Cloudflare access, and day-to-day deploy behavior — a record of
+the operational workflows needed to get and keep the environment in shape, not just a pile
+of manifests.
 
 ## Operational Model
 
-The Hetzner deploy flow is particularly revealing. The `apply.sh` path is documented as a
-single-run locked operation that can pull the latest repo state, converge the VPS,
-install/enable k3s, prepare kubeconfig, wait for the network bridge, install host
-Postgres/Redis, and then emit logs and summaries. That is real operations work, not just
-“kubectl apply and hope.”
+The Hetzner deploy path is a single-run, locked operation: it pulls the latest repo state,
+converges the VPS, installs and enables k3s, prepares the kubeconfig, waits for the
+network bridge, installs host Postgres/Redis, and emits logs and a summary — real
+operations work, not just `kubectl apply` and hope.
 
-The Woodpecker documentation is similarly concrete. It lays out a split security model
-where public Cloudflare-exposed endpoints are narrowed to webhook and OAuth callback paths,
-while the full UI remains available only over Tailscale. That is a thoughtful compromise:
-allow CI to receive the events it needs without pretending the entire control plane should
-be broadly public.
+CI access follows a split security model: public Cloudflare-exposed endpoints are
+narrowed to webhook and OAuth callback paths, while the full CI UI stays reachable only
+over Tailscale — letting CI receive the events it needs without making the entire control
+plane broadly public.
 
-This repo also acts as the place where application deployments become reconciled state.
-The documented workflow has app repos building and pushing images, this repo pinning tags
-or digests in overlays, and Flux reconciling on commit. That separation is clean. It means
-the application repo is responsible for artifact creation, while `homelab` is responsible
-for declaring what actually runs.
+Deploys are reconciled rather than pushed by hand: application repos build and push
+images, this repo pins the tags or digests in overlays, and Flux reconciles the cluster on
+commit. That separation is clean — the application repo owns artifact creation, and
+`homelab` owns what actually runs.
 
 ## Technical Shape
 
-Technically, the repo combines Kubernetes manifests, Nix-based machine/bootstrap work,
-deploy scripts, and documentation that ties them together. The layout under `k3s/clusters`,
-`k3s/infra`, and `k3s/apps` gives the repo a clear structure, while the `docs/` and
-`scripts/` directories explain how the manifests relate to the actual host and operator
-workflow.
-
-That matters because many homelab repos are really just snapshots of local decisions. This
-one is trying harder to become a maintained system. The presence of preflight scripts,
-sealed secret rendering, deploy request flows, and written runbooks suggests the repo is
-intended to survive repeated use rather than a single cluster bootstrap.
+The repo combines Kubernetes manifests, Nix-based machine and bootstrap work, deploy
+scripts, and documentation tying them together, laid out under `k3s/clusters`,
+`k3s/infra`, and `k3s/apps`. Preflight scripts, sealed-secret rendering, deploy request
+flows, and written runbooks are all part of it — built to survive repeated use rather than
+a single cluster bootstrap.
 
 ## Why It Matters
 
-If the application repos show product intent, `homelab` shows operational intent. It is
-the repo where changes become infrastructure truth and where the cost of sloppiness is
-paid immediately in breakage or drift. That gives it a different kind of importance. It
-does not need to be elegant in the same way a product repo does. It needs to be
-predictable, inspectable, and safe enough to trust when other repos depend on it.
-
-That makes `homelab` one of the more consequential repos in the group. It is where the
-workspace stops being a collection of codebases and becomes an actual running environment.
+If the product projects show product intent, `homelab` shows operational intent: it's
+where changes become infrastructure truth, and where sloppiness gets paid back immediately
+in breakage or drift. It doesn't need to be elegant the way a product does — it needs to
+be predictable, inspectable, and safe enough to trust when other projects depend on it.
+This is the piece where the rest of the work stops being a pile of codebases and becomes
+an actual running environment.

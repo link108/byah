@@ -35,7 +35,7 @@ Stone` that map to specific geometry and seeded textures. The storefront itself 
 rendered with React Three Fiber so customers can preview the configured box in 3D before
 checkout, and if Stripe environment variables are left blank, checkout falls back to a
 clearly labeled demo confirmation rather than silently taking payment — a sensible
-default for a repo that's still validating its physical tolerances.
+default for a product that's still validating its physical tolerances.
 
 The stack depths in the catalog are explicitly marked as calibration targets "until they
 have passed documented physical fit tests," which is an unusually honest thing to encode
@@ -64,7 +64,7 @@ web product and a small manufacturing service.
 
 ## Why It Matters
 
-`reliquary-works` is one of the few repos in the set where the code has to answer to a
+`reliquary-works` is one of the few projects here where the code has to answer to a
 physical object at the end of the pipeline, not just a database row. That constraint
 shows up everywhere: a versioned catalog instead of hardcoded dimensions, a checksummed
 manifest per order, an idempotent job ledger, and an explicit acknowledgment that the

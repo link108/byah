@@ -1,0 +1,60 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Architecture"
+  description="How the workstation, project repos, CI, and cluster fit together."
+  currentPath="/architecture"
+>
+  <section class="content-body">
+    <span class="eyebrow">Overview</span>
+    <h1>How It Fits Together</h1>
+    <p>
+      Most of the projects here aren't one-off scripts — they're built, tested, and shipped
+      through the same small pipeline. This is the shape of that pipeline, from a laptop to
+      a live URL.
+    </p>
+
+    <pre><code>┌─────────────────┐
+│    dev-setup     │  workstation — Nix flakes, Home Manager, Homebrew
+└────────┬─────────┘
+         │ write, build, commit
+         v
+┌─────────────────┐
+│  project repos   │  byah, deckforge, landlordlog, collections,
+│                  │  reliquary-works, cutty-bangerz, slopyard,
+│                  │  choose-your-own-game-theory, and others
+└────────┬─────────┘
+         │ Woodpecker CI — test, build image, push
+         v
+┌─────────────────┐
+│     homelab      │  k3s GitOps source of truth
+└────────┬─────────┘
+         │ Flux reconciles on commit
+         v
+┌─────────────────┐
+│   k3s cluster    │  Hetzner VPS — ingress, secrets, backing services
+└────────┬─────────┘
+         │ serves
+         v
+   live sites (byah.org, deckforge.byah.org, drank.byah.org, ...)</code></pre>
+
+    <p>
+      <a href="/projects/dev-setup/">dev-setup</a> is the machine everything else gets
+      written on — a Nix-managed macOS environment, not something that ever gets deployed.
+      Product code lives in its own repo per project, each with its own stack, but they
+      share the same path out: Woodpecker CI tests the code, builds a container image, and
+      pushes it. <a href="/projects/homelab/">homelab</a> is where that image becomes a
+      running thing — it holds the k3s manifests and pins the image tags, Flux picks up the
+      change, and the cluster reconciles to match. From there, ingress and DNS turn it into
+      a URL a visitor can hit.
+    </p>
+    <p>
+      Not everything runs through this loop. <a href="/projects/agents/">agents</a>,
+      <a href="/projects/code-practice/">code-practice</a>, and
+      <a href="/projects/project-planner/">project-planner</a> are local tools that never
+      get deployed — they're meant to be run, not visited.
+    </p>
+  </section>
+</BaseLayout>
