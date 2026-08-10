@@ -1,5 +1,101 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+
+const region = "Sonoma County, CA";
+
+function place({ name, icon, description }) {
+  const mapsQuery = encodeURIComponent(`${name} ${region}`);
+  const yelpDesc = encodeURIComponent(name);
+  const yelpLoc = encodeURIComponent(region);
+  return {
+    name,
+    icon,
+    description,
+    mapsUrl: `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`,
+    yelpUrl: `https://www.yelp.com/search?find_desc=${yelpDesc}&find_loc=${yelpLoc}`
+  };
+}
+
+const wineries = [
+  place({
+    name: "Flowers",
+    icon: "🍇",
+    description:
+      "Sonoma Coast specialist best known for single-vineyard Pinot Noir and Chardonnay off wind-battered ridgetop sites like Camp Meeting Ridge."
+  }),
+  place({
+    name: "Ridge",
+    icon: "🍇",
+    description:
+      "The Lytton Springs estate — old-vine Zinfandel field blends, some from vines pushing a century old."
+  }),
+  place({
+    name: "Iron Horse",
+    icon: "🥂",
+    description:
+      "Open-air sparkling wine bar on a ridgetop with sweeping views. Their bubbles have reportedly poured at more than one White House state dinner."
+  }),
+  place({
+    name: "Gary Farrell",
+    icon: "🍇",
+    description:
+      "Hillside tasting room overlooking the Russian River Valley — cool-climate, elegant Pinot Noir and Chardonnay."
+  }),
+  place({
+    name: "MacRostie",
+    icon: "🍇",
+    description:
+      "Pinot Noir and Chardonnay producer with an estate house built for slow afternoons and long views."
+  })
+];
+
+const dinnerSpots = [
+  place({
+    name: "Russian River Brewing",
+    icon: "🍺",
+    description:
+      "Home of Pliny the Elder — one of the most-hyped double IPAs in American craft beer — plus a full pub menu."
+  }),
+  place({
+    name: "Sonoma Pizza Co",
+    icon: "🍕",
+    description: "Wood-fired pizza for a casual, no-fuss dinner after a day of tasting."
+  }),
+  place({
+    name: "Main Street Bistro",
+    icon: "🍽️",
+    description: "Casual bistro fare in the middle of Guerneville, sometimes with live music on the patio."
+  }),
+  place({
+    name: "Stumptown Brewery",
+    icon: "🍺",
+    description:
+      "Dog-friendly beer garden and BBQ joint right on Main Street — a solid warm-up for Saturday's festival."
+  }),
+  place({
+    name: "Boon",
+    icon: "🌿",
+    description: "Farm-to-table plates in a low-key Guerneville setting — the more composed option on this list."
+  }),
+  place({
+    name: "Three Cultures",
+    icon: "🌍",
+    description: "A blend of cuisines under one roof, for the table that can't agree on one kind of food."
+  }),
+  place({
+    name: "Baked on the River",
+    icon: "🥐",
+    description:
+      "Bakery and cafe for the morning after — pastries, coffee, and something to soak up last night's tasting."
+  })
+];
+
+const festivalMenu = [
+  { icon: "🍺", label: "Beer" },
+  { icon: "🐷", label: "Pulled Pork" },
+  { icon: "🍖", label: "Ribs" },
+  { icon: "🍗", label: "Wings" }
+];
 ---
 
 <BaseLayout
@@ -11,42 +107,177 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   <section class="content-body">
     <span class="eyebrow">Not linked anywhere on byah.org — just for you</span>
     <h1>Guerneville: Wine, Smoke, and Whatever's Left in the Cooler</h1>
+    <p class="emoji-banner" aria-hidden="true">🍇 🍷 🔥 🐷 🍖 🍗 🍺</p>
     <p>
       Three days along the Russian River — up Thursday night, wine country Friday, beer
       and barbecue Saturday. Home base is an Airbnb in Guerneville for the whole trip.
     </p>
 
-    <h2>Thursday, Aug 13 — Up to Guerneville</h2>
+    <h2>🚗 Thursday, Aug 13 — Up to Guerneville</h2>
     <p>
       Drive up after work, check into the Airbnb, no agenda beyond getting there.
     </p>
 
-    <h2>Friday, Aug 14 — Healdsburg Wineries</h2>
+    <h2>🍇 Friday, Aug 14 — Healdsburg Wineries</h2>
     <p>
-      The shortlist for the day — probably not all five, but this is the lineup:
+      The shortlist for the day — probably not all five, but this is the lineup. Tap one
+      for the pitch, plus a map and Yelp link.
     </p>
-    <ul>
-      <li>Flowers</li>
-      <li>Ridge</li>
-      <li>Iron Horse</li>
-      <li>Gary Farrell</li>
-      <li>MacRostie</li>
-    </ul>
-    <p>Dinner after, either back in Guerneville or still in Healdsburg — still deciding between:</p>
-    <ul>
-      <li>Russian River Brewing</li>
-      <li>Sonoma Pizza Co</li>
-      <li>Main Street Bistro</li>
-      <li>Stumptown Brewery</li>
-      <li>Boon</li>
-      <li>Three Cultures</li>
-      <li>Baked on the River</li>
-    </ul>
+    <div class="place-list">
+      {
+        wineries.map((w) => (
+          <details class="place">
+            <summary>
+              <span class="place-icon" aria-hidden="true">
+                {w.icon}
+              </span>{" "}
+              {w.name}
+            </summary>
+            <div class="place-body">
+              <p>{w.description}</p>
+              <p class="place-links">
+                <a class="link-pill" href={w.mapsUrl} target="_blank" rel="noopener noreferrer">
+                  Map
+                </a>
+                <a class="link-pill" href={w.yelpUrl} target="_blank" rel="noopener noreferrer">
+                  Yelp
+                </a>
+              </p>
+            </div>
+          </details>
+        ))
+      }
+    </div>
 
-    <h2>Saturday, Aug 15 — Beer &amp; BBQ Festival</h2>
+    <h3>🍽️ Dinner, TBD</h3>
+    <p>Either back in Guerneville or still in Healdsburg — still deciding between:</p>
+    <div class="place-list">
+      {
+        dinnerSpots.map((d) => (
+          <details class="place">
+            <summary>
+              <span class="place-icon" aria-hidden="true">
+                {d.icon}
+              </span>{" "}
+              {d.name}
+            </summary>
+            <div class="place-body">
+              <p>{d.description}</p>
+              <p class="place-links">
+                <a class="link-pill" href={d.mapsUrl} target="_blank" rel="noopener noreferrer">
+                  Map
+                </a>
+                <a class="link-pill" href={d.yelpUrl} target="_blank" rel="noopener noreferrer">
+                  Yelp
+                </a>
+              </p>
+            </div>
+          </details>
+        ))
+      }
+    </div>
+
+    <h2>🍺 Saturday, Aug 15 — Beer &amp; BBQ Festival</h2>
     <p>
       The main event: Guerneville's Beer &amp; BBQ Festival. Slower morning after two days
-      of wine, then hops and smoke for the rest of the day.
+      of wine, then this for the rest of the day.
     </p>
+    <div class="festival-grid" role="list">
+      {
+        festivalMenu.map((item) => (
+          <div class="festival-item" role="listitem">
+            <span class="festival-icon" aria-hidden="true">
+              {item.icon}
+            </span>
+            <span>{item.label}</span>
+          </div>
+        ))
+      }
+    </div>
   </section>
 </BaseLayout>
+
+<style>
+  .emoji-banner {
+    font-size: 1.8rem;
+    letter-spacing: 0.3rem;
+    margin: 0 0 1rem;
+  }
+
+  .place-list {
+    display: grid;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .place {
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 0.6rem 0.75rem;
+  }
+
+  .place summary {
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  .place summary:hover {
+    color: var(--accent);
+  }
+
+  .place-icon {
+    display: inline-block;
+    width: 1.4rem;
+  }
+
+  .place-body {
+    padding-top: 0.5rem;
+  }
+
+  .place-body p {
+    margin-bottom: 0.5rem;
+  }
+
+  .place-links {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0 !important;
+  }
+
+  .link-pill {
+    display: inline-block;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.15rem 0.6rem;
+    font-size: 0.9rem;
+    text-decoration: none;
+  }
+
+  .link-pill:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .festival-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin: 1rem 0;
+  }
+
+  .festival-item {
+    flex: 1 1 110px;
+    text-align: center;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.75rem 0.5rem;
+  }
+
+  .festival-icon {
+    display: block;
+    font-size: 2rem;
+    margin-bottom: 0.25rem;
+  }
+</style>
