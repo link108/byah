@@ -8,12 +8,14 @@ interface Props {
   title?: string;
   description?: string;
   currentPath?: string;
+  noindex?: boolean;
 }
 
 const {
   title = siteConfig.title,
   description = siteConfig.description,
-  currentPath = Astro.url.pathname
+  currentPath = Astro.url.pathname,
+  noindex = false
 } = Astro.props;
 
 const pageTitle =
@@ -30,6 +32,7 @@ const canonicalUrl = new URL(Astro.url.pathname, siteConfig.siteUrl).toString();
     <meta name="description" content={description} />
     <meta name="generator" content={Astro.generator} />
     <meta name="theme-color" content={siteConfig.accentColor} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
     <link rel="canonical" href={canonicalUrl} />
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
