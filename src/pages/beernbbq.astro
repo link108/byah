@@ -3,7 +3,13 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
 const region = "Sonoma County, CA";
 
-function place({ name, icon, description }) {
+interface PlaceInput {
+  name: string;
+  icon: string;
+  description: string;
+}
+
+function place({ name, icon, description }: PlaceInput) {
   const mapsQuery = encodeURIComponent(`${name} ${region}`);
   const yelpDesc = encodeURIComponent(name);
   const yelpLoc = encodeURIComponent(region);
