@@ -1,7 +1,9 @@
 ---
 import { getCollection, render } from "astro:content";
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import VersionHistory from "../../components/VersionHistory.astro";
 import { formatDate } from "../../lib/format";
+import { buildHistory } from "../../lib/history";
 
 export async function getStaticPaths() {
   const posts = await getCollection("blog", ({ data }) => !data.draft);
@@ -13,6 +15,7 @@ export async function getStaticPaths() {
 
 const { post } = Astro.props;
 const { Content } = await render(post);
+const revisions = buildHistory(post.filePath);
 ---
 
 <BaseLayout
@@ -33,4 +36,6 @@ const { Content } = await render(post);
       <Content />
     </div>
   </article>
+
+  <VersionHistory revisions={revisions} />
 </BaseLayout>

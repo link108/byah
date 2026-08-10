@@ -1,199 +1,25 @@
 ---
+import { getEntry, render } from "astro:content";
 import BaseLayout from "../layouts/BaseLayout.astro";
+import VersionHistory from "../components/VersionHistory.astro";
+import { buildHistory } from "../lib/history";
+
+const entry = await getEntry("pages", "development");
+if (!entry) throw new Error("Missing 'development' entry in the pages collection");
+const { Content } = await render(entry);
+const revisions = buildHistory(entry.filePath);
 ---
 
 <BaseLayout
-  title="Development"
-  description="The hosts, clusters, and agent layer behind how these projects actually get built and operated."
+  title={entry.data.title}
+  description={entry.data.summary}
   currentPath="/development"
 >
   <section class="content-body">
-    <span class="eyebrow">Operations</span>
-    <h1>How I Actually Run This</h1>
-    <p>
-      Most of what's on this site ships through a pipeline that looks unremarkable from the
-      outside — push to GitHub, CI builds an image, it lands on a VPS. What's underneath
-      that is less usual: two independent k3s clusters, a self-hosted AI agent with its own
-      scoped access to both, and a laptop doing full-time duty as a build node. None of this
-      needed to be this deliberate for a one-person project, but the agent doing a lot of
-      the day-to-day operating work needed the same kind of guardrails a team of humans
-      would insist on, so I ended up building them anyway.
-    </p>
-    <p>
-      This is the part that doesn't fit on a project card: the actual hosts, how the two
-      clusters differ in what they're trusted to do, and how an agent gets to touch
-      production without being able to reach <code>kubectl delete</code> on a Tuesday
-      afternoon.
-    </p>
-
-    <h2>The Hosts</h2>
-    <p>
-      Three machines, three different jobs:
-    </p>
-    <ul>
-      <li>
-        <strong>hetzner</strong> (<code>ubuntu-4gb-hil-1</code>) — a Hetzner Cloud VPS
-        running the production k3s cluster: all seven live apps, the Woodpecker CI server,
-        host-level Postgres and Redis, the Cloudflare tunnel, and the observability stack.
-      </li>
-      <li>
-        <strong>openclaw-gateway</strong> — a headless Ubuntu box (an old Core i7-4500U
-        laptop, 7 GB of RAM, repurposed rather than bought) that runs nothing app-related.
-        Its only job is the OpenClaw agent gateway — the thing that does a lot of the
-        day-to-day operating.
-      </li>
-      <li>
-        <strong>openclaw-node</strong> — a 2017 MacBook Pro (16 GB RAM) running a second,
-        independent k3s cluster via Rancher Desktop. It exists to take CI load off the VPS:
-        a Woodpecker build agent, a BuildKit daemon, and a Grafana/VictoriaMetrics mirror.
-      </li>
-    </ul>
-    <p>
-      None of this is cloud-scale hardware. The interesting part isn't the specs — it's how
-      carefully the boundaries between them are drawn.
-    </p>
-
-    <pre><code>                 Tailscale tailnet (private mesh)
-                              |
-        +----------------------+-----------------------+
-        |                                               |
- openclaw-gateway                                openclaw-node
- (headless Linux laptop)                         (2017 MacBook Pro)
- OpenClaw agent + Slack                    k3s: Woodpecker build agent,
- + 6 MCP servers                           BuildKit, Grafana mirror
-        |
-        | ssh, dispatcher-restricted commands only
-        v
- hetzner (Hetzner VPS, k3s)
- byah · deckforge · landlordlog · cutty-bangerz
- slopyard · game-theory-sim · reliquary-works
- Woodpecker server · host Postgres/Redis
- Cloudflare tunnel · observability stack</code></pre>
-
-    <h2>Two Clusters, Two Trust Levels</h2>
-    <p>
-      hetzner and openclaw-node are both k3s, but the agent's access to each is
-      intentionally lopsided. On hetzner — the cluster actually running production traffic
-      — the ServiceAccount OpenClaw authenticates as gets a ClusterRole called
-      <code>openclaw-reader</code>: get/list/watch on pods, services, deployments, jobs,
-      nodes, events, and pod logs, plus <code>metrics.k8s.io</code> for
-      <code>kubectl top</code>. No secrets. No write verbs at all. If the agent needs to
-      actually change something on hetzner, it has to go through a different door entirely
-      (below).
-    </p>
-    <p>
-      On openclaw-node, the same ClusterRole name carries real write permissions:
-      create/update/patch/delete on deployments, statefulsets, services, configmaps, PVCs,
-      jobs, and ingresses — but still explicitly no Secret access, no Namespace
-      create/delete, no cluster-admin. That's not an oversight; the RBAC manifest says so
-      directly in its own comments. openclaw-node is a CI/build box with nothing
-      customer-facing on it, so letting the agent actually deploy things there is a
-      reasonable blast radius. hetzner is not, so it doesn't get that.
-    </p>
-
-    <h2>Getting Code Out the Door</h2>
-    <p>
-      The actual shipping path — GitHub Actions building and pushing an image, opening a
-      deploy PR against homelab, Woodpecker auto-merging and applying it — is laid out on
-      the <a href="/architecture">architecture page</a>. It's mostly boring, which is the
-      point, but the mesh it runs on isn't always forgiving: a CoreDNS rule scoped to
-      <code>IN A</code> only recently broke every deploy silently, because
-      <code>kubectl</code>'s dual-stack resolver also queries <code>AAAA</code>, and an
-      unmatched AAAA query fell through to a plugin that answered NXDOMAIN instead of
-      NODATA — a hard failure on a record type nothing was even using. That's the kind of
-      bug that only shows up once you've built enough infrastructure to have DNS plugins
-      with fallthrough semantics in the first place.
-    </p>
-
-    <h2>The Agent Layer</h2>
-    <p>
-      OpenClaw is the thing actually running on openclaw-gateway: three routed models
-      behind one Slack-facing identity. The default agent (<code>deepseek-v4-flash</code>)
-      triages everything — status checks, quick kubectl calls, memory recall — and
-      delegates out for anything heavier: <code>deepseek-v4-pro</code> for multi-step
-      reasoning and debugging, <code>kimi-k2</code> for anything over roughly 15k tokens or
-      a full repo dropped into chat. Routing is just an exec call the orchestrator makes to
-      itself, not a separate service.
-    </p>
-    <p>
-      It's wired into six MCP servers — Grafana, both Kubernetes clusters, Woodpecker,
-      GitHub, and Notion — the same ones, as it happens, that the Claude Code session
-      writing this page has access to. Same backends, same scopes, two different front
-      doors.
-    </p>
-
-    <h2>Letting an Agent Touch Production</h2>
-    <p>
-      hetzner doesn't hand out a kubeconfig with write access at all. Instead there's a
-      single SSH key, installed with a <code>command=</code> restriction in
-      <code>authorized_keys</code> that routes everything through a dispatcher script — no
-      interactive shell, ever. <code>SSH_ORIGINAL_COMMAND</code> gets parsed against an
-      explicit case statement with seven named operations: cluster-status, pod-logs,
-      disk-usage, woodpecker-health, victoria-health, db-ro, and rollout-restart. Anything
-      else is denied and logged.
-    </p>
-    <p>
-      Two of those are worth calling out. <code>rollout-restart</code> checks the
-      namespace/deployment pair against a hardcoded allowlist — the seven production apps
-      plus the three Woodpecker components — so the agent can restart <code>deckforge</code>
-      but not <code>coredns</code>. <code>db-ro</code> enforces read-only twice over: a
-      regex blocklist rejects anything that looks like INSERT/UPDATE/DELETE/DROP/ALTER/
-      GRANT/COPY before it ever reaches Postgres, and the connection itself authenticates as
-      <code>openclaw_ro</code>, a role with no write grants at all. Belt and suspenders —
-      either check alone would probably be enough, but the point of giving an agent SSH
-      access is not having to trust that one clever prompt won't find the gap in the other.
-    </p>
-
-    <pre><code> OpenClaw agent --ssh hetzner "&lt;cmd&gt; &lt;args&gt;"--&gt; dispatcher
-                                                  (command= restricted,
-                                                   no shell, ever)
-                        |
-        +----------------------+----------------------------+
-        |                                                    |
-  read-only ops                                      rollout-restart
-  cluster-status, pod-logs,                    hardcoded allowlist: the
-  disk-usage, woodpecker-health,                7 production apps + the
-  victoria-health                               3 Woodpecker components
-        |
-        v
-  db-ro &lt;database&gt; &lt;sql&gt;
-  regex blocklist + read-only
-  Postgres role (openclaw_ro)</code></pre>
-
-    <h2>Networking as the Trust Boundary</h2>
-    <p>
-      Tailscale is what actually makes this workable. Every private surface — the
-      Woodpecker UI, both clusters' APIs, Grafana — sits only on the tailnet, reachable by
-      device identity rather than by anything resembling a public port. The only thing
-      Cloudflare's tunnel exposes is <code>ci.byah.org</code>, and even that's narrowed at
-      the nginx layer to <code>/hook</code> and <code>/authorize</code>; everything else
-      404s before it reaches Woodpecker.
-    </p>
-    <p>
-      Internal-only hostnames get the same treatment through Tailscale's Split DNS:
-      <code>grafana.byah.org</code> and <code>plane.byah.org</code> resolve only for
-      tailnet devices, answered by a dnsmasq instance running directly on openclaw-node
-      rather than inside its cluster — Rancher Desktop only forwards one LoadBalancer
-      service's ports to the Mac's real network interfaces, found that the hard way.
-      Neither hostname has a public DNS record, and it's not because someone remembered to
-      lock it down. There's just nothing there to find.
-    </p>
-
-    <h2>What's Still Moving</h2>
-    <p>
-      The three-host picture above is closer to a snapshot than a finished design.
-      openclaw-node is currently running the OpenClaw Gateway role itself — a LaunchAgent
-      on the same Mac that's supposed to be a disposable build box — while
-      openclaw-gateway, the machine actually meant for that job, gets bootstrapped and
-      verified. The cutover only happens once the Linux gateway is confirmed healthy
-      end-to-end; until then, nobody touches the Mac's OpenClaw process. Plane got pulled
-      off openclaw-node the day before this was written, purely to free up capacity for the
-      build workload it actually exists for.
-    </p>
-    <p>
-      None of that is a problem to hide. A homelab that's honest about which parts are
-      load-bearing and which parts are still being poured is more useful than one that
-      pretends to be finished.
-    </p>
+    <span class="eyebrow">{entry.data.eyebrow}</span>
+    <h1>{entry.data.title}</h1>
+    <Content />
   </section>
+
+  <VersionHistory revisions={revisions} />
 </BaseLayout>

@@ -1,0 +1,95 @@
+---
+import { formatDate } from "../lib/format";
+import { siteConfig } from "../site.config";
+import type { HistoryEntry } from "../lib/history";
+
+interface Props {
+  revisions: HistoryEntry[];
+}
+
+const { revisions } = Astro.props;
+const priorRevisions = revisions.filter((r) => !r.isCurrent);
+---
+
+{priorRevisions.length > 0 && (
+  <section class="content-body section-rule history">
+    <h2>History</h2>
+    <p>
+      This page is versioned — {priorRevisions.length} earlier
+      {priorRevisions.length === 1 ? "version" : "versions"} below. Full diffs are on{" "}
+      <a href={siteConfig.repoUrl}>GitHub</a>.
+    </p>
+    <ol class="revision-list">
+      {revisions.map((revision) => (
+        <li>
+          <div class="revision-meta">
+            <time datetime={revision.date.toISOString()}>{formatDate(revision.date)}</time>
+            <span class="revision-message">{revision.message}</span>
+            {revision.isCurrent && <span class="current-badge">Current</span>}
+            <a href={`${siteConfig.repoUrl}/commit/${revision.hash}`}>diff</a>
+          </div>
+          {!revision.isCurrent && revision.html && (
+            <details>
+              <summary>Read this version</summary>
+              <div class="content-body" set:html={revision.html} />
+            </details>
+          )}
+        </li>
+      ))}
+    </ol>
+  </section>
+)}
+
+<style>
+  .revision-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .revision-list > li {
+    padding: 0.6rem 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .revision-list > li:first-child {
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .revision-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+
+  .revision-message {
+    color: var(--fg);
+  }
+
+  .current-badge {
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.8rem;
+  }
+
+  details {
+    margin-top: 0.5rem;
+  }
+
+  summary {
+    cursor: pointer;
+    color: var(--muted);
+    text-decoration: underline;
+  }
+
+  details .content-body {
+    margin-top: 0.75rem;
+    padding-left: 1rem;
+    border-left: 1px solid var(--border);
+  }
+</style>
