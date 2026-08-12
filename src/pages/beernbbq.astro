@@ -7,11 +7,13 @@ interface PlaceInput {
   name: string;
   icon: string;
   description: string;
+  query?: string;
 }
 
-function place({ name, icon, description }: PlaceInput) {
-  const mapsQuery = encodeURIComponent(`${name} ${region}`);
-  const yelpDesc = encodeURIComponent(name);
+function place({ name, icon, description, query }: PlaceInput) {
+  const searchName = query ?? name;
+  const mapsQuery = encodeURIComponent(`${searchName} ${region}`);
+  const yelpDesc = encodeURIComponent(searchName);
   const yelpLoc = encodeURIComponent(region);
   return {
     name,
@@ -22,38 +24,14 @@ function place({ name, icon, description }: PlaceInput) {
   };
 }
 
-const wineries = [
-  place({
-    name: "Flowers",
-    icon: "🍇",
-    description:
-      "Sonoma Coast specialist best known for single-vineyard Pinot Noir and Chardonnay off wind-battered ridgetop sites like Camp Meeting Ridge."
-  }),
-  place({
-    name: "Ridge",
-    icon: "🍇",
-    description:
-      "The Lytton Springs estate — old-vine Zinfandel field blends, some from vines pushing a century old."
-  }),
-  place({
-    name: "Iron Horse",
-    icon: "🥂",
-    description:
-      "Open-air sparkling wine bar on a ridgetop with sweeping views. Their bubbles have reportedly poured at more than one White House state dinner."
-  }),
-  place({
-    name: "Gary Farrell",
-    icon: "🍇",
-    description:
-      "Hillside tasting room overlooking the Russian River Valley — cool-climate, elegant Pinot Noir and Chardonnay."
-  }),
-  place({
-    name: "MacRostie",
-    icon: "🍇",
-    description:
-      "Pinot Noir and Chardonnay producer with an estate house built for slow afternoons and long views."
-  })
-];
+const daveroWebsite = "https://davero.com/";
+const davero = place({
+  name: "DaVero",
+  icon: "🍇",
+  query: "DaVero Farms & Winery",
+  description:
+    "Biodynamic farm and winery outside Healdsburg growing Italian and Rhône varietals — Sangiovese, Dolcetto, Vermentino — alongside some of Sonoma's best olive oil."
+});
 
 const dinnerSpots = [
   place({
@@ -105,112 +83,269 @@ const festivalMenu = [
 
 <BaseLayout
   title="Beer & BBQ"
-  description="A long weekend in Guerneville — Healdsburg wineries, dinner on the river, and the Beer & BBQ Festival."
+  description="A long weekend in Guerneville — DaVero in Healdsburg, dinner on the river, and the Beer & BBQ Festival."
   currentPath="/beernbbq"
   noindex={true}
 >
   <section class="content-body">
-    <h1>Guerneville: Wine, Smoke, and Whatever's Left in the Cooler</h1>
-    <p class="emoji-banner" aria-hidden="true">🍇 🍷 🔥 🍖 🍗 🍺</p>
-    <p>
-      Wine country Friday afternoon, then beer and barbecue Saturday. Home base is an
-      Airbnb in Guerneville.
-    </p>
-
-    <h2>🍇 Friday, Aug 14 — Healdsburg Wineries</h2>
-    <p>
-      Confirmed:{" "}
-      <a href="https://davero.com/" target="_blank" rel="noopener noreferrer">
-        DaVero
-      </a>{" "}
-      at 3:30 for the classic flight. Maybe a second stop after — here's the rest of the
-      lineup to pick from. Tap one for the pitch, plus a map and Yelp link.
-    </p>
-    <div class="place-list">
-      {
-        wineries.map((w) => (
-          <details class="place">
-            <summary>
-              <span class="place-icon" aria-hidden="true">
-                {w.icon}
-              </span>{" "}
-              {w.name}
-            </summary>
-            <div class="place-body">
-              <p>{w.description}</p>
-              <p class="place-links">
-                <a class="link-pill" href={w.mapsUrl} target="_blank" rel="noopener noreferrer">
-                  Map
-                </a>
-                <a class="link-pill" href={w.yelpUrl} target="_blank" rel="noopener noreferrer">
-                  Yelp
-                </a>
-              </p>
-            </div>
-          </details>
-        ))
-      }
+    <div class="hero">
+      <p class="emoji-banner" aria-hidden="true">🍇 🍷 🔥 🍖 🍗 🍺</p>
+      <h1>Guerneville: Wine, Smoke, and Whatever's Left in the Cooler</h1>
+      <p class="hero-sub">
+        Wine country Friday afternoon, then beer and barbecue Saturday. Home base is an
+        Airbnb in Guerneville.
+      </p>
+      <div class="hero-badges">
+        <span class="badge">📍 Guerneville, CA</span>
+        <span class="badge">🏠 Airbnb weekend</span>
+      </div>
     </div>
 
-    <h3>🍽️ Dinner, TBD</h3>
-    <p>Either back in Guerneville or still in Healdsburg — still deciding between:</p>
-    <div class="place-list">
-      {
-        dinnerSpots.map((d) => (
-          <details class="place">
-            <summary>
-              <span class="place-icon" aria-hidden="true">
-                {d.icon}
-              </span>{" "}
-              {d.name}
-            </summary>
-            <div class="place-body">
-              <p>{d.description}</p>
-              <p class="place-links">
-                <a class="link-pill" href={d.mapsUrl} target="_blank" rel="noopener noreferrer">
-                  Map
-                </a>
-                <a class="link-pill" href={d.yelpUrl} target="_blank" rel="noopener noreferrer">
-                  Yelp
-                </a>
-              </p>
-            </div>
-          </details>
-        ))
-      }
-    </div>
+    <div class="day-card day-wine">
+      <div class="day-head">
+        <span class="day-icon" aria-hidden="true">🍷</span>
+        <div>
+          <p class="day-label">Friday, Aug 14</p>
+          <h2>Healdsburg Wineries</h2>
+        </div>
+      </div>
 
-    <h2>🍺 Saturday, Aug 15 — Beer &amp; BBQ Festival</h2>
-    <p>
-      The main event: Guerneville's Beer &amp; BBQ Festival. Slower morning after
-      yesterday's wine, then this for the rest of the day.
-    </p>
-    <div class="festival-grid" role="list">
-      {
-        festivalMenu.map((item) => (
-          <div class="festival-item" role="listitem">
-            <span class="festival-icon" aria-hidden="true">
-              {item.icon}
-            </span>
-            <span>{item.label}</span>
+      <div class="plan-card">
+        <span class="plan-ribbon">Confirmed</span>
+        <div class="plan-main">
+          <span class="plan-icon" aria-hidden="true">{davero.icon}</span>
+          <div>
+            <a class="plan-name" href={daveroWebsite} target="_blank" rel="noopener noreferrer">
+              {davero.name}
+            </a>
+            <div class="plan-chips">
+              <span class="chip">🕞 3:30 PM</span>
+              <span class="chip">🥂 Classic Flight</span>
+            </div>
           </div>
-        ))
-      }
+        </div>
+        <p>{davero.description}</p>
+        <p class="place-links">
+          <a class="link-pill" href={daveroWebsite} target="_blank" rel="noopener noreferrer">
+            Website
+          </a>
+          <a class="link-pill" href={davero.mapsUrl} target="_blank" rel="noopener noreferrer">
+            Map
+          </a>
+          <a class="link-pill" href={davero.yelpUrl} target="_blank" rel="noopener noreferrer">
+            Yelp
+          </a>
+        </p>
+      </div>
+
+      <h3>🍽️ Dinner, TBD</h3>
+      <p>Either back in Guerneville or still in Healdsburg — still deciding between:</p>
+      <div class="place-list">
+        {
+          dinnerSpots.map((d) => (
+            <details class="place">
+              <summary>
+                <span class="place-icon" aria-hidden="true">
+                  {d.icon}
+                </span>{" "}
+                {d.name}
+              </summary>
+              <div class="place-body">
+                <p>{d.description}</p>
+                <p class="place-links">
+                  <a class="link-pill" href={d.mapsUrl} target="_blank" rel="noopener noreferrer">
+                    Map
+                  </a>
+                  <a class="link-pill" href={d.yelpUrl} target="_blank" rel="noopener noreferrer">
+                    Yelp
+                  </a>
+                </p>
+              </div>
+            </details>
+          ))
+        }
+      </div>
+    </div>
+
+    <div class="day-card day-bbq">
+      <div class="day-head">
+        <span class="day-icon" aria-hidden="true">🔥</span>
+        <div>
+          <p class="day-label">Saturday, Aug 15</p>
+          <h2>Beer &amp; BBQ Festival</h2>
+        </div>
+      </div>
+      <p>
+        The main event: Guerneville's Beer &amp; BBQ Festival. Slower morning after
+        yesterday's wine, then this for the rest of the day.
+      </p>
+      <div class="festival-grid" role="list">
+        {
+          festivalMenu.map((item) => (
+            <div class="festival-item" role="listitem">
+              <span class="festival-icon" aria-hidden="true">
+                {item.icon}
+              </span>
+              <span>{item.label}</span>
+            </div>
+          ))
+        }
+      </div>
     </div>
   </section>
 </BaseLayout>
 
 <style>
-  .emoji-banner {
-    font-size: 1.8rem;
-    letter-spacing: 0.3rem;
-    margin: 0 0 1rem;
+  .hero {
+    text-align: center;
+    padding: 2rem 1.5rem 1.75rem;
+    margin-bottom: 1.75rem;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #5b1a3a 0%, #8c2f4b 35%, #d97b3f 75%, #f2a83c 100%);
+    color: #fff;
+  }
+
+  .hero .emoji-banner {
+    font-size: 2.1rem;
+    letter-spacing: 0.4rem;
+    margin: 0 0 0.75rem;
+  }
+
+  .hero h1 {
+    font-size: 1.6rem;
+    margin-bottom: 0.6rem;
+    color: #fff;
+  }
+
+  .hero-sub {
+    color: rgba(255, 255, 255, 0.92);
+    max-width: 44ch;
+    margin: 0 auto 1rem;
+  }
+
+  .hero-badges {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .badge {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 999px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .day-card {
+    border-radius: 14px;
+    padding: 1.5rem;
+    margin-bottom: 1.75rem;
+    border: 1px solid var(--border);
+  }
+
+  .day-wine {
+    background: linear-gradient(180deg, #fbf1f4 0%, #ffffff 60%);
+    border-color: #e7c7d3;
+  }
+
+  .day-bbq {
+    background: linear-gradient(180deg, #fff6e9 0%, #ffffff 60%);
+    border-color: #f0d5a8;
+  }
+
+  .day-head {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.1rem;
+  }
+
+  .day-icon {
+    font-size: 2.1rem;
+    line-height: 1;
+  }
+
+  .day-label {
+    margin: 0 0 0.1rem;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06rem;
+    color: var(--muted);
+  }
+
+  .day-card h2 {
+    margin: 0;
+    font-size: 1.25rem;
+  }
+
+  .plan-card {
+    position: relative;
+    background: #fff;
+    border: 1px solid #e7c7d3;
+    border-radius: 12px;
+    padding: 1.1rem 1.1rem 1rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 14px rgba(139, 47, 75, 0.1);
+  }
+
+  .plan-ribbon {
+    position: absolute;
+    top: -0.65rem;
+    right: 1rem;
+    background: #8c2f4b;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05rem;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+  }
+
+  .plan-main {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-bottom: 0.65rem;
+  }
+
+  .plan-icon {
+    font-size: 2.25rem;
+  }
+
+  .plan-name {
+    font-size: 1.2rem;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .plan-name:hover {
+    text-decoration: underline;
+  }
+
+  .plan-chips {
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 0.35rem;
+    flex-wrap: wrap;
+  }
+
+  .chip {
+    background: #fbe7ee;
+    color: #8c2f4b;
+    border-radius: 999px;
+    padding: 0.15rem 0.6rem;
+    font-size: 0.85rem;
+    font-weight: 600;
   }
 
   .place-list {
     display: grid;
     gap: 0.5rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0;
   }
 
   .place {
@@ -218,6 +353,7 @@ const festivalMenu = [
     border-left: 3px solid var(--accent);
     border-radius: 4px;
     padding: 0.6rem 0.75rem;
+    background: #fff;
   }
 
   .place summary {
@@ -266,21 +402,29 @@ const festivalMenu = [
   .festival-grid {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem;
-    margin: 1rem 0;
+    gap: 0.85rem;
+    margin: 0.25rem 0 0;
   }
 
   .festival-item {
     flex: 1 1 110px;
     text-align: center;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 0.75rem 0.5rem;
+    background: #fff;
+    border: 1px solid #f0d5a8;
+    border-radius: 12px;
+    padding: 1rem 0.5rem;
+    box-shadow: 0 4px 14px rgba(217, 123, 63, 0.1);
   }
 
   .festival-icon {
-    display: block;
-    font-size: 2rem;
-    margin-bottom: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f2a83c, #d9502f);
+    font-size: 1.6rem;
+    margin: 0 auto 0.5rem;
   }
 </style>
