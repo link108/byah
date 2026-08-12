@@ -2,24 +2,32 @@
 
 Lightweight self-hosted personal blog and bio site built with Astro, TypeScript, Markdown/MDX, and plain CSS.
 
+## Development environment
+
+This repo uses the shared [dev-platform](https://github.com/link108/dev-platform)
+Dev Container base image. No database or other backing services, so the
+Dev Container references the image directly - no Docker Compose, no
+generated secrets. Requirements on the host: Git, Docker, and the
+[Dev Container CLI](https://github.com/devcontainers/cli) (or a compatible
+editor, e.g. VS Code's Dev Containers extension). No local Node install needed.
+
+```bash
+devcontainer up --workspace-folder .
+```
+
+Inside the Dev Container, `mise install` runs automatically (pinning Node
+to `20`, matching `Dockerfile`); continue with `just setup`.
+
 ## Commands
 
-Install dependencies:
-
 ```bash
-npm install
-```
-
-Run the local dev server:
-
-```bash
-npm run dev
-```
-
-Build the static site:
-
-```bash
-npm run build
+just                 # list every command
+just setup           # install dependencies
+just dev             # local dev server
+just build           # build the static site
+just lint            # astro check
+just typecheck       # astro check
+just check           # lint + typecheck + build — same as CI (alias: just ci)
 ```
 
 ## Docker

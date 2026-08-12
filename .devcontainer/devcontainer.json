@@ -1,0 +1,8 @@
+{
+  "name": "byah",
+  "image": "link108/devcontainer-base:1",
+  "workspaceFolder": "/workspaces/byah",
+  "remoteUser": "vscode",
+  "postCreateCommand": "git config --global --add safe.directory ${containerWorkspaceFolder} && mise install",
+  "forwardPorts": [4321]
+}
