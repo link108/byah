@@ -1,0 +1,207 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+
+interface Props {
+  title: string;
+  description: string;
+  currentPath: string;
+  eyebrow: string;
+  heading: string;
+}
+
+const { title, description, currentPath, eyebrow, heading } = Astro.props;
+
+const navLinks = [
+  { href: "/beernbbq", label: "Trip plan" },
+  { href: "/beernbbq/beers", label: "🍺 Beers" },
+  { href: "/beernbbq/food", label: "🍖 Food" },
+  { href: "/beernbbq/results", label: "🏆 Results" }
+];
+---
+
+<BaseLayout title={title} description={description} currentPath={currentPath} noindex={true}>
+  <section class="content-body">
+    <nav class="beernbbq-nav" aria-label="Beer & BBQ">
+      {
+        navLinks.map((link) => (
+          <a
+            class="link-pill"
+            href={link.href}
+            aria-current={currentPath === link.href ? "page" : undefined}
+          >
+            {link.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <p class="eyebrow">{eyebrow}</p>
+    <h1>{heading}</h1>
+
+    <slot />
+  </section>
+</BaseLayout>
+
+<style>
+  .beernbbq-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .beernbbq-nav a[aria-current="page"] {
+    background: #8c2f4b;
+    border-color: #8c2f4b;
+    color: #fff;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+
+  /* --- shared primitives reused by beers/food/results pages --- */
+
+  :global(.link-pill) {
+    display: inline-block;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.25rem 0.85rem;
+    font-size: 0.9rem;
+    text-decoration: none;
+    background: #fff;
+  }
+
+  :global(.link-pill:hover) {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  :global(.name-banner) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    background: linear-gradient(135deg, #fbf1f4, #fff6e9);
+    border: 1px solid #e7c7d3;
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  :global(.name-form) {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  :global(.name-form input) {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.95rem;
+  }
+
+  :global(.entity-card) {
+    border: 1px solid var(--border);
+    border-left: 3px solid #8c2f4b;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.6rem;
+    background: #fff;
+  }
+
+  :global(.entity-card summary) {
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  :global(.entity-card summary:hover) {
+    color: #8c2f4b;
+  }
+
+  :global(.entity-body) {
+    padding-top: 0.75rem;
+  }
+
+  :global(.item-row) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    border-top: 1px solid var(--border);
+  }
+
+  :global(.item-row:first-child) {
+    border-top: none;
+  }
+
+  :global(.item-name) {
+    font-weight: 600;
+  }
+
+  :global(.item-added-by) {
+    color: var(--muted);
+    font-weight: 400;
+    font-size: 0.85rem;
+  }
+
+  :global(.rate-widget) {
+    display: inline-flex;
+    gap: 0.15rem;
+  }
+
+  :global(.rate-widget button) {
+    border: 1px solid var(--border);
+    background: #fff;
+    border-radius: 4px;
+    width: 1.8rem;
+    height: 1.8rem;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    color: var(--muted);
+  }
+
+  :global(.rate-widget button.active) {
+    background: #f2a83c;
+    border-color: #d9502f;
+    color: #fff;
+  }
+
+  :global(.rate-summary) {
+    font-size: 0.85rem;
+    color: var(--muted);
+    min-width: 7.5rem;
+    text-align: right;
+  }
+
+  :global(.add-form) {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+  }
+
+  :global(.add-form input) {
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.9rem;
+  }
+
+  :global(.add-form button) {
+    border: 1px solid #8c2f4b;
+    background: #8c2f4b;
+    color: #fff;
+    border-radius: 6px;
+    padding: 0.3rem 0.9rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+</style>

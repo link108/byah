@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Brewery {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  beers     Beer[]
+  createdAt DateTime @default(now())
+}
+
+model Beer {
+  id        String       @id @default(cuid())
+  breweryId String
+  brewery   Brewery      @relation(fields: [breweryId], references: [id], onDelete: Cascade)
+  name      String
+  addedBy   String?
+  ratings   BeerRating[]
+  createdAt DateTime     @default(now())
+
+  @@unique([breweryId, name])
+}
+
+// score is 1-5, validated in the API handlers (no reliable DB check-constraint
+// support in this Prisma version). raterName + upsert-on-conflict is how a
+// rater edits their own rating - see src/lib/rater.ts.
+model BeerRating {
+  id        String   @id @default(cuid())
+  beerId    String
+  beer      Beer     @relation(fields: [beerId], references: [id], onDelete: Cascade)
+  raterName String
+  score     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([beerId, raterName])
+}
+
+model BbqTeam {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  items     FoodItem[]
+  createdAt DateTime   @default(now())
+}
+
+model FoodItem {
+  id        String       @id @default(cuid())
+  teamId    String
+  team      BbqTeam      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  label     String
+  addedBy   String?
+  ratings   FoodRating[]
+  createdAt DateTime     @default(now())
+
+  @@unique([teamId, label])
+}
+
+model FoodRating {
+  id         String   @id @default(cuid())
+  foodItemId String
+  foodItem   FoodItem @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
+  raterName  String
+  score      Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([foodItemId, raterName])
+}

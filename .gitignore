@@ -1,3 +1,13 @@
 node_modules
 dist
 .astro
+
+# Prisma-generated client (regenerated via `just generate` / `prisma generate`)
+src/generated/
+
+# Generated per-workspace PostgreSQL credentials (.devcontainer/generate-secrets.sh)
+# Never committed - regenerated automatically on first `devcontainer up`.
+.devcontainer/secrets/
+
+.env*
+!.env.example

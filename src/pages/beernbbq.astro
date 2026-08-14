@@ -191,9 +191,26 @@ const festivalMenu = [
           ))
         }
       </div>
+      <p class="place-links" id="live-links" hidden>
+        <a class="link-pill" href="/beernbbq/beers">🍺 Rate beers live</a>
+        <a class="link-pill" href="/beernbbq/food">🍖 Rate BBQ live</a>
+        <a class="link-pill" href="/beernbbq/results">🏆 See results</a>
+      </p>
     </div>
   </section>
 </BaseLayout>
+
+<script>
+  // beernbbq.astro is a prerendered static page - this page's server
+  // never knows the viewer's timezone, so the "Saturday" gate below runs
+  // client-side against the viewer's own device clock (good enough here:
+  // everyone's at the same event). Links start `hidden` in the markup so
+  // there's no flash of "live" links before this check runs.
+  const liveAt = new Date(2026, 7, 15, 0, 0, 0); // Aug 15, 2026, local time
+  if (new Date() >= liveAt) {
+    document.getElementById("live-links")?.removeAttribute("hidden");
+  }
+</script>
 
 <style>
   .hero {
@@ -382,6 +399,13 @@ const festivalMenu = [
     display: flex;
     gap: 0.5rem;
     margin-bottom: 0 !important;
+  }
+
+  /* .place-links sets display:flex at the same specificity as the browser's
+     own [hidden] rule, so without this the hidden attribute alone wouldn't
+     actually hide #live-links - see the date-gate script above. */
+  .place-links[hidden] {
+    display: none;
   }
 
   .link-pill {

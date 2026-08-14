@@ -4,10 +4,20 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
+RUN npx prisma generate
 RUN npm run build
 
-FROM nginx:1.27-alpine
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/dist /usr/share/nginx/html
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+# @astrojs/node's standalone server (dist/server/entry.mjs) serves both the
+# prerendered static assets in dist/client and the on-demand SSR/API routes
+# from one process - no reverse proxy needed.
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=8080
+ENV HOST=0.0.0.0
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./package.json
+EXPOSE 8080
+# Migrations run as a separate CI step (`just migrate`), never on container start.
+CMD ["node", "./dist/server/entry.mjs"]

@@ -1,6 +1,8 @@
 {
   "name": "byah",
-  "image": "link108/devcontainer-base:1",
+  "initializeCommand": "bash ${localWorkspaceFolder}/.devcontainer/generate-secrets.sh",
+  "dockerComposeFile": ["../compose.dev.yml"],
+  "service": "app",
   "workspaceFolder": "/workspaces/byah",
   "remoteUser": "vscode",
   "postCreateCommand": "git config --global --add safe.directory ${containerWorkspaceFolder} && mise install",

@@ -1,0 +1,80 @@
+---
+import BeernbbqLayout from "../../layouts/BeernbbqLayout.astro";
+import { db } from "../../lib/db";
+
+export const prerender = false;
+
+const breweries = await db.brewery.findMany({
+  orderBy: { name: "asc" },
+  include: {
+    beers: {
+      orderBy: { name: "asc" },
+      include: { ratings: true }
+    }
+  }
+});
+
+function avgAndCount(ratings: { score: number }[]) {
+  const count = ratings.length;
+  const average = count ? ratings.reduce((sum, r) => sum + r.score, 0) / count : 0;
+  return { average, count };
+}
+---
+
+<BeernbbqLayout
+  title="Rate the beers"
+  description="Add beers under each brewery and rate them 1-5."
+  currentPath="/beernbbq/beers"
+  eyebrow="🍺 Beer & BBQ Festival"
+  heading="Rate the Beers"
+>
+  <div data-role="name-banner" class="name-banner"></div>
+
+  <p>Tap a brewery to see what's been poured so far, add a beer, or rate one.</p>
+
+  <div>
+    {
+      breweries.map((brewery) => (
+        <details class="entity-card">
+          <summary>
+            {brewery.name} <span style="color: var(--muted); font-weight: 400;">({brewery.beers.length})</span>
+          </summary>
+          <div class="entity-body">
+            {brewery.beers.map((beer) => {
+              const { average, count } = avgAndCount(beer.ratings);
+              return (
+                <div class="item-row">
+                  <span class="item-name">
+                    {beer.name}
+                    {beer.addedBy && <span class="item-added-by"> — added by {beer.addedBy}</span>}
+                  </span>
+                  <span style="display: flex; align-items: center; gap: 0.6rem;">
+                    <span class="rate-widget" data-kind="beer" data-id={beer.id}>
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <button type="button" data-score={n}>
+                          ★
+                        </button>
+                      ))}
+                    </span>
+                    <span class="rate-summary">
+                      {count === 0 ? "No ratings yet" : `${average.toFixed(1)} ★ (${count})`}
+                    </span>
+                  </span>
+                </div>
+              );
+            })}
+            <form class="add-form" data-kind="beer" data-parent-id={brewery.id}>
+              <input type="text" name="value" placeholder="Add a beer you tried..." maxlength="60" required />
+              <button type="submit">Add</button>
+            </form>
+          </div>
+        </details>
+      ))
+    }
+  </div>
+</BeernbbqLayout>
+
+<script>
+  import { initBeernbbqPage } from "../../lib/beernbbq-client";
+  initBeernbbqPage();
+</script>

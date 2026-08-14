@@ -1,0 +1,87 @@
+---
+import BeernbbqLayout from "../../layouts/BeernbbqLayout.astro";
+import { db } from "../../lib/db";
+
+export const prerender = false;
+
+const teams = await db.bbqTeam.findMany({
+  orderBy: { name: "asc" },
+  include: {
+    items: {
+      orderBy: { label: "asc" },
+      include: { ratings: true }
+    }
+  }
+});
+
+function avgAndCount(ratings: { score: number }[]) {
+  const count = ratings.length;
+  const average = count ? ratings.reduce((sum, r) => sum + r.score, 0) / count : 0;
+  return { average, count };
+}
+
+function icon(label: string) {
+  if (label === "Ribs") return "🍖 ";
+  if (label === "Wings") return "🍗 ";
+  return "";
+}
+---
+
+<BeernbbqLayout
+  title="Rate the BBQ"
+  description="Rate ribs and wings from each BBQ team, or add your own item."
+  currentPath="/beernbbq/food"
+  eyebrow="🔥 Beer & BBQ Festival"
+  heading="Rate the BBQ"
+>
+  <div data-role="name-banner" class="name-banner"></div>
+
+  <p>Every team starts with Ribs and Wings — rate what you tried, or add something they served that isn't listed.</p>
+
+  <div>
+    {
+      teams.map((team) => (
+        <details class="entity-card">
+          <summary>
+            {team.name} <span style="color: var(--muted); font-weight: 400;">({team.items.length})</span>
+          </summary>
+          <div class="entity-body">
+            {team.items.map((item) => {
+              const { average, count } = avgAndCount(item.ratings);
+              return (
+                <div class="item-row">
+                  <span class="item-name">
+                    {icon(item.label)}
+                    {item.label}
+                    {item.addedBy && <span class="item-added-by"> — added by {item.addedBy}</span>}
+                  </span>
+                  <span style="display: flex; align-items: center; gap: 0.6rem;">
+                    <span class="rate-widget" data-kind="item" data-id={item.id}>
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <button type="button" data-score={n}>
+                          ★
+                        </button>
+                      ))}
+                    </span>
+                    <span class="rate-summary">
+                      {count === 0 ? "No ratings yet" : `${average.toFixed(1)} ★ (${count})`}
+                    </span>
+                  </span>
+                </div>
+              );
+            })}
+            <form class="add-form" data-kind="food" data-parent-id={team.id}>
+              <input type="text" name="value" placeholder="Add something they served..." maxlength="60" required />
+              <button type="submit">Add</button>
+            </form>
+          </div>
+        </details>
+      ))
+    }
+  </div>
+</BeernbbqLayout>
+
+<script>
+  import { initBeernbbqPage } from "../../lib/beernbbq-client";
+  initBeernbbqPage();
+</script>

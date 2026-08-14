@@ -1,0 +1,141 @@
+---
+import BeernbbqLayout from "../../layouts/BeernbbqLayout.astro";
+import { db } from "../../lib/db";
+
+export const prerender = false;
+
+function avgAndCount(ratings: { score: number }[]) {
+  const count = ratings.length;
+  const average = count ? ratings.reduce((sum, r) => sum + r.score, 0) / count : 0;
+  return { average, count };
+}
+
+const beers = await db.beer.findMany({
+  include: { ratings: true, brewery: true }
+});
+const rankedBeers = beers
+  .map((beer) => ({ name: beer.name, subLabel: beer.brewery.name, ...avgAndCount(beer.ratings) }))
+  .filter((b) => b.count > 0)
+  .sort((a, b) => b.average - a.average || b.count - a.count);
+
+const foodItems = await db.foodItem.findMany({
+  include: { ratings: true, team: true }
+});
+const rankedFood = foodItems
+  .map((item) => ({ name: item.label, subLabel: item.team.name, ...avgAndCount(item.ratings) }))
+  .filter((f) => f.count > 0)
+  .sort((a, b) => b.average - a.average || b.count - a.count);
+---
+
+<BeernbbqLayout
+  title="Results"
+  description="Live leaderboard of the highest-rated beers and BBQ from the festival."
+  currentPath="/beernbbq/results"
+  eyebrow="🏆 Beer & BBQ Festival"
+  heading="Results"
+>
+  <p>Live leaderboard, ranked by average rating. Reload to see the latest.</p>
+
+  <div class="results-grid">
+    <div class="results-column">
+      <h2>🍺 Beers</h2>
+      {rankedBeers.length === 0 && <p class="empty-state">No ratings yet.</p>}
+      <ol class="results-list">
+        {
+          rankedBeers.map((b) => (
+            <li>
+              <span class="result-name">
+                {b.name}
+                <span class="result-sub">{b.subLabel}</span>
+              </span>
+              <span class="result-score">
+                {b.average.toFixed(1)} ★ <span class="result-count">({b.count})</span>
+              </span>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+
+    <div class="results-column">
+      <h2>🔥 Food</h2>
+      {rankedFood.length === 0 && <p class="empty-state">No ratings yet.</p>}
+      <ol class="results-list">
+        {
+          rankedFood.map((f) => (
+            <li>
+              <span class="result-name">
+                {f.name}
+                <span class="result-sub">{f.subLabel}</span>
+              </span>
+              <span class="result-score">
+                {f.average.toFixed(1)} ★ <span class="result-count">({f.count})</span>
+              </span>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </div>
+</BeernbbqLayout>
+
+<style>
+  .results-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  @media (max-width: 640px) {
+    .results-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .results-column h2 {
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .empty-state {
+    color: var(--muted);
+  }
+
+  .results-list {
+    list-style: decimal;
+    padding-left: 1.4rem;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .results-list li {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.5rem;
+  }
+
+  .result-name {
+    font-weight: 600;
+  }
+
+  .result-sub {
+    display: block;
+    font-weight: 400;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  .result-score {
+    white-space: nowrap;
+    font-weight: 600;
+    color: #8c2f4b;
+  }
+
+  .result-count {
+    font-weight: 400;
+    color: var(--muted);
+  }
+</style>
