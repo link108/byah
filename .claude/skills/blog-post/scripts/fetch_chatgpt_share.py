@@ -34,14 +34,43 @@ def fetch_html(url: str) -> str:
         return resp.read().decode("utf-8", errors="replace")
 
 
+def read_js_string_literal(text: str, start: int) -> str:
+    """
+    Extract a double-quoted JS string literal starting at index `start`
+    (which must point at the opening '"'), respecting backslash escapes.
+
+    A naive non-greedy regex (".*?") breaks here: real conversation text
+    routinely contains a literal quote character immediately followed by
+    a ')' (e.g. a quoted phrase at the end of a parenthetical), which
+    looks exactly like the end of the enqueue(...) call and truncates the
+    match early. Scanning char-by-char is the only reliable way to find
+    the real end of the literal.
+    """
+    assert text[start] == '"'
+    i = start + 1
+    n = len(text)
+    while i < n:
+        c = text[i]
+        if c == "\\":
+            i += 2
+            continue
+        if c == '"':
+            return text[start : i + 1]
+        i += 1
+    raise ValueError("Unterminated JS string literal")
+
+
 def extract_stream_payload(html: str) -> list:
     """Find the enqueue(...) call carrying the main data payload and decode it as JSON."""
     scripts = re.findall(r"<script nonce=\"[^\"]*\">(.*?)</script>", html, re.S)
     candidates = []
     for s in scripts:
-        for m in re.finditer(r"streamController\.enqueue\((\".*?\")\)", s, re.S):
-            raw = m.group(1)
+        for m in re.finditer(r"streamController\.enqueue\(", s):
+            quote_start = m.end()
+            if quote_start >= len(s) or s[quote_start] != '"':
+                continue
             try:
+                raw = read_js_string_literal(s, quote_start)
                 unescaped = json.loads(raw)
                 parsed = json.loads(unescaped)
                 if isinstance(parsed, list):
