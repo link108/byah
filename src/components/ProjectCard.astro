@@ -6,7 +6,7 @@ const liveLink = project.data.links.find(
 ---
 
 <article class="entry project-entry">
-  <a href={`/projects/${project.slug}/`}>{project.data.title}</a>
+  <a href={`/projects/${project.id}/`}>{project.data.title}</a>
   {liveLink && (
     <>
       {" "}<span aria-hidden="true">/</span>{" "}
