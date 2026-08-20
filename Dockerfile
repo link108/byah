@@ -1,4 +1,4 @@
-FROM node:20-alpine AS build
+FROM node:24-alpine AS build
 RUN apk add --no-cache git
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -10,7 +10,7 @@ RUN npm run build
 # @astrojs/node's standalone server (dist/server/entry.mjs) serves both the
 # prerendered static assets in dist/client and the on-demand SSR/API routes
 # from one process - no reverse proxy needed.
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080

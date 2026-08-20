@@ -16,27 +16,27 @@ labels:
 
 steps:
   - name: install
-    image: node:20-alpine
+    image: node:24-alpine
     commands:
       - npm ci
 
   - name: generate
-    image: node:20-alpine
+    image: node:24-alpine
     commands:
       - npx prisma generate
 
   - name: lint
-    image: node:20-alpine
+    image: node:24-alpine
     commands:
       - npm run lint
 
   - name: typecheck
-    image: node:20-alpine
+    image: node:24-alpine
     commands:
       - npm run typecheck
 
   - name: build
-    image: node:20-alpine
+    image: node:24-alpine
     commands:
       - npm run build
 
