@@ -212,6 +212,16 @@ blockquote {
   border-top: 1px solid var(--border);
 }
 
+.series-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.95rem;
+}
+
 .content-body p,
 .content-body ul,
 .content-body ol,
