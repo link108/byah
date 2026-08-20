@@ -5,7 +5,7 @@ summary: "AI is good at building the guardrails it needs, not just the features 
 tags: ["ai", "devops", "automation"]
 series:
   name: "AI Velocity Requires Engineering Discipline"
-  order: 6
+  order: 7
 draft: true
 ---
 

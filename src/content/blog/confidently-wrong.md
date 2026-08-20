@@ -30,6 +30,16 @@ That shows up in a few specific ways:
 
 None of that makes AI output bad. Most of it is quite good, which is exactly what makes it dangerous to skim.
 
+## The Perception Gap
+
+This isn't just a feeling. In 2025, [METR ran a randomized controlled trial](https://metr.org/blog/2025-07-10-early-2025-ai-experienced-os-dev-study/) — the closest thing software engineering has to a clinical drug trial — with experienced open-source developers working in codebases they already knew well. Before the study, they guessed AI would make them about 24% faster. Afterward, they still believed it had made them about 20% faster. What actually happened: they were 19% *slower* with AI than without it.
+
+Read that twice. The confidently-wrong pattern isn't limited to the code. It showed up in how the developers using the code felt about their own performance, while it was happening, in both directions — before and after.
+
+That doesn't mean AI makes everyone slower. In [GitHub's own controlled study](https://github.blog/news-insights/research/research-quantifying-github-copilots-impact-on-developer-productivity-and-happiness/), developers finished a scoped, well-defined coding task 55% faster with Copilot than without it. The difference looks a lot like the distinction this series keeps landing on: bounded, well-specified work versus unfamiliar systems, where the actual cost is understanding what's going on, not typing the fix. METR's own researchers now call their result "historical" — a snapshot of a specific set of tools at a specific moment, not a verdict on AI forever. But I don't think the perception gap goes away just because the tools get better. Confidence and accuracy are different things, for the model and for the person using it.
+
+That tracks with something else: [Stack Overflow's 2025 developer survey](https://survey.stackoverflow.co/2025/ai) found 84% of developers using or planning to use AI tools, up from 76% the year before, while only 29% said they trusted its accuracy, down from 40%. Everyone's using it. Almost nobody fully trusts it. That's not a contradiction. It's an accurate read of the situation, and it's the same read this post has been building toward.
+
 ## Untrusted, Not Useless
 
 I don't think the right response is treating AI output as probably wrong. I think the right frame is: it's an untrusted but highly productive contributor. You wouldn't merge a stranger's PR without review just because the diff looked clean and the tests passed — especially knowing that stranger also wrote the tests. AI-generated code deserves the same posture, minus the part where you'd normally build trust with a contributor over time. There isn't really an "over time" here. Every diff resets to zero.
