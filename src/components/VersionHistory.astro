@@ -15,7 +15,8 @@ const priorRevisions = revisions.filter((r) => !r.isCurrent);
     <h2>History</h2>
     <p>
       This page is versioned — {priorRevisions.length} earlier
-      {priorRevisions.length === 1 ? "version" : "versions"} below.
+      {priorRevisions.length === 1 ? "version" : "versions"} below. Use the version
+      dropdown above to read any of them.
     </p>
     <ol class="revision-list">
       {revisions.map((revision) => (
@@ -26,12 +27,6 @@ const priorRevisions = revisions.filter((r) => !r.isCurrent);
             <span class="revision-message">{revision.message}</span>
             {revision.isCurrent && <span class="current-badge">Current</span>}
           </div>
-          {!revision.isCurrent && revision.html && (
-            <details>
-              <summary>Read this version</summary>
-              <div class="content-body" set:html={revision.html} />
-            </details>
-          )}
         </li>
       ))}
     </ol>
@@ -78,21 +73,5 @@ const priorRevisions = revisions.filter((r) => !r.isCurrent);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     font-size: 0.8rem;
-  }
-
-  details {
-    margin-top: 0.5rem;
-  }
-
-  summary {
-    cursor: pointer;
-    color: var(--muted);
-    text-decoration: underline;
-  }
-
-  details .content-body {
-    margin-top: 0.75rem;
-    padding-left: 1rem;
-    border-left: 1px solid var(--border);
   }
 </style>

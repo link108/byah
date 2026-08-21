@@ -1,0 +1,73 @@
+---
+import { formatDate } from "../lib/format";
+import type { HistoryEntry } from "../lib/history";
+
+interface Props {
+  revisions: HistoryEntry[];
+  contentId: string;
+}
+
+const { revisions, contentId } = Astro.props;
+const priorRevisions = revisions.filter((r) => !r.isCurrent);
+---
+
+{priorRevisions.length > 0 && (
+  <div class="version-switcher">
+    <label for="version-select">Version</label>
+    <select id="version-select">
+      <option value="current">Latest</option>
+      {priorRevisions.map((revision) => (
+        <option value={revision.hash}>{formatDate(revision.date)} · {revision.shortHash}</option>
+      ))}
+    </select>
+    {priorRevisions.map((revision) => (
+      <template data-version={revision.hash} set:html={revision.html} />
+    ))}
+  </div>
+)}
+
+<script is:inline define:vars={{ contentId }}>
+  // The switcher (and this script) sits in the article header, above
+  // #post-content in document order - DOMContentLoaded avoids reading that
+  // element before the parser has reached it.
+  document.addEventListener("DOMContentLoaded", () => {
+    const select = document.getElementById("version-select");
+    if (!select) return;
+
+    const contentEl = document.getElementById(contentId);
+    const latestHtml = contentEl.innerHTML;
+    const templates = document.querySelectorAll(".version-switcher template");
+
+    // Always opens on "Latest" - the selection is never persisted across visits.
+    select.value = "current";
+
+    select.addEventListener("change", () => {
+      if (select.value === "current") {
+        contentEl.innerHTML = latestHtml;
+        return;
+      }
+      const template = Array.from(templates).find((t) => t.dataset.version === select.value);
+      if (template) contentEl.replaceChildren(template.content.cloneNode(true));
+    });
+  });
+</script>
+
+<style>
+  .version-switcher {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+
+  .version-switcher select {
+    font: inherit;
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.3rem 0.5rem;
+  }
+</style>

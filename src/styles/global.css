@@ -219,6 +219,14 @@ blockquote {
   border-top: 1px solid var(--border);
 }
 
+.post-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
 .series-nav {
   display: flex;
   justify-content: space-between;

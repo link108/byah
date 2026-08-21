@@ -2,6 +2,7 @@
 import { getCollection, render } from "astro:content";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import VersionHistory from "../../components/VersionHistory.astro";
+import VersionSwitcher from "../../components/VersionSwitcher.astro";
 import { formatDate, formatAiInvolvement } from "../../lib/format";
 import { buildHistory } from "../../lib/history";
 import { getSeriesPosts, getSeriesLength } from "../../lib/content";
@@ -32,19 +33,22 @@ const nextInSeries =
   currentPath="/blog"
 >
   <article>
-    <header class="content-body">
-      <span class="eyebrow">Blog Post</span>
-      <h1>{post.data.title}</h1>
-      <div class="meta">
-        <time datetime={post.data.date.toISOString()}>{formatDate(post.data.date)}</time>
-        {post.data.series && (
-          <span>{post.data.series.name} · Part {post.data.series.order} of {seriesLength}</span>
-        )}
-        <span class="ai-badge">{formatAiInvolvement(post.data.aiInvolvement)}</span>
-        {post.data.tags.map((tag: string) => <span>#{tag}</span>)}
+    <header class="content-body post-header">
+      <div>
+        <span class="eyebrow">Blog Post</span>
+        <h1>{post.data.title}</h1>
+        <div class="meta">
+          <time datetime={post.data.date.toISOString()}>{formatDate(post.data.date)}</time>
+          {post.data.series && (
+            <span>{post.data.series.name} · Part {post.data.series.order} of {seriesLength}</span>
+          )}
+          <span class="ai-badge">{formatAiInvolvement(post.data.aiInvolvement)}</span>
+          {post.data.tags.map((tag: string) => <span>#{tag}</span>)}
+        </div>
       </div>
+      <VersionSwitcher revisions={revisions} contentId="post-content" />
     </header>
-    <div class="content-body section-rule" style="margin-top: 1.5rem;">
+    <div id="post-content" class="content-body section-rule" style="margin-top: 1.5rem;">
       <Content />
     </div>
     {(prevInSeries || nextInSeries) && (

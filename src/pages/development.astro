@@ -2,6 +2,7 @@
 import { getEntry, render } from "astro:content";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import VersionHistory from "../components/VersionHistory.astro";
+import VersionSwitcher from "../components/VersionSwitcher.astro";
 import { buildHistory } from "../lib/history";
 
 const entry = await getEntry("pages", "development");
@@ -15,11 +16,16 @@ const revisions = buildHistory(entry.filePath);
   description={entry.data.summary}
   currentPath="/development"
 >
-  <section class="content-body">
-    <span class="eyebrow">{entry.data.eyebrow}</span>
-    <h1>{entry.data.title}</h1>
+  <header class="content-body post-header">
+    <div>
+      <span class="eyebrow">{entry.data.eyebrow}</span>
+      <h1>{entry.data.title}</h1>
+    </div>
+    <VersionSwitcher revisions={revisions} contentId="post-content" />
+  </header>
+  <div id="post-content" class="content-body">
     <Content />
-  </section>
+  </div>
 
   <VersionHistory revisions={revisions} />
 </BaseLayout>
