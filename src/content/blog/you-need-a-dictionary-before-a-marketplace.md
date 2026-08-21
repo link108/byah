@@ -6,6 +6,7 @@ tags: ["standards", "infrastructure", "markets"]
 series:
   name: "Shared Language and AI"
   order: 2
+aiInvolvement: heavy-draft
 draft: true
 ---
 
@@ -26,13 +27,17 @@ Once a category has agreed-on terms, a handful of things become possible that we
 
 That last one is easy to undersell. Specialization is the whole reason an economy can have someone who only does color matching, or only does connector manufacturing, or only writes MIDI sequencers. None of those roles are viable if every participant also has to independently reinvent the shared context to do their one job.
 
-## Open Doesn't Automatically Win
+## Two Real Tradeoffs, Not One Verdict
 
-There's a tempting, slightly smug version of this argument that says open standards are obviously better than proprietary ones, full stop. I don't think that holds up. Open standards are powerful specifically because people can build against them without asking anyone — that part's true. But openness alone doesn't get you adoption, and a technically excellent standard that nobody actually uses is worth less, economically, than a mediocre one that's embedded throughout an entire industry.
+It's tempting to shortcut this to "open standards are obviously better than proprietary ones, full stop." That skips past what's actually being traded off, and both sides of it are real.
 
-Proprietary standards can bootstrap trust and adoption faster than open ones, precisely because someone's on the hook for maintaining them and has a reason to. The risk isn't that a standard has an owner. It's what happens when an entire ecosystem becomes dependent on a standard with no meaningful portability and no shared governance — which is exactly the setup that made the Pantone/Adobe dispute from the last post possible in the first place. The vocabulary worked fine for decades. The problem only showed up once the people who controlled it had a reason to change the terms, and everyone downstream discovered they had no leverage at all.
+The case for open is straightforward: nobody has to ask anyone's permission to build against it, adoption isn't gated by a business relationship with whoever owns the standard, and no single company can later change the terms on everyone downstream.
 
-So the useful version of this isn't "open good, proprietary bad." It's: the pattern (vocabulary → coordination → interoperability → specialization → ecosystem → marketplace) works either way, but who controls the first step determines who has leverage over every step after it.
+The case for proprietary is less obvious but just as real, and it's more than "they get to charge for it": being able to make money on a standard is often what pays for maintaining it. Someone has to keep the reference tooling working, staff the group that resolves disputes, defend the trademark, and fund updating a decades-old spec for a material or format that didn't exist when it was written. None of that happens for free just because a spec is published under an open license — it happens because someone has an ongoing financial reason to keep doing it. Pantone's whole physical-reference-and-dispute-resolution apparatus from the last post exists because Pantone gets paid to run it, not despite that.
+
+The risk isn't that a standard has an owner. It's what happens when an entire ecosystem becomes dependent on a standard with no meaningful portability and no shared governance, and the owner later has a reason to change the terms on everyone who built around it. That's exactly the setup that made the Pantone/Adobe dispute possible: the vocabulary worked fine for decades, right up until the people who controlled it decided to change how people paid for it, and everyone downstream discovered they had no leverage at all.
+
+So the useful version of this isn't "open good, proprietary bad" — and it isn't "proprietary good, open bad" either. It's: the pattern (vocabulary → coordination → interoperability → specialization → ecosystem → marketplace) can work under either governance model, and monetization is a real reason a standard gets sustained rather than abandoned. What actually matters is who controls the first step, and whether the people depending on it have any recourse if that control gets used against them later.
 
 ## Where This Gets Interesting
 

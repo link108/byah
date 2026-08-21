@@ -15,7 +15,8 @@ const blog = defineCollection({
         name: z.string(),
         order: z.number().int().positive()
       })
-      .optional()
+      .optional(),
+    aiInvolvement: z.enum(["heavy-draft", "co-written", "light-assist"])
   })
 });
 

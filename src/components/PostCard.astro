@@ -1,5 +1,5 @@
 ---
-import { formatDate } from "../lib/format";
+import { formatDate, formatAiInvolvement } from "../lib/format";
 
 const { post } = Astro.props;
 ---
@@ -8,6 +8,7 @@ const { post } = Astro.props;
   <div class="meta">
     <time datetime={post.data.date.toISOString()}>{formatDate(post.data.date)}</time>
     {post.data.series && <span>{post.data.series.name} · Part {post.data.series.order}</span>}
+    <span class="ai-badge">{formatAiInvolvement(post.data.aiInvolvement)}</span>
   </div>
   <h3><a href={`/blog/${post.id}/`}>{post.data.title}</a></h3>
   <p>{post.data.summary}</p>

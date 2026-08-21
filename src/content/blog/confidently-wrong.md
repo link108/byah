@@ -6,6 +6,7 @@ tags: ["ai", "qa", "code-review"]
 series:
   name: "AI Velocity Requires Engineering Discipline"
   order: 2
+aiInvolvement: heavy-draft
 draft: true
 ---
 

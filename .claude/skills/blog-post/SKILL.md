@@ -28,12 +28,18 @@ title: "..."
 date: YYYY-MM-DD
 summary: "One or two sentences — shows on the blog index card."
 tags: []
+aiInvolvement: heavy-draft
 draft: true
 ---
 ```
 
 - Use the `currentDate` from context for `date` unless Cameron says otherwise.
 - Default `draft: true`. Draft posts are excluded from the blog index and don't get a generated page at all (`getStaticPaths` in `src/pages/blog/[slug].astro` filters on `!data.draft`), so it's safe to commit early or rough drafts without publishing them. Only flip to `draft: false` when Cameron says the post is ready.
+- `aiInvolvement` is a required, public-facing disclosure of roughly how much AI input the post had — displayed as a badge on the post page and its index card (`src/lib/format.ts`'s `formatAiInvolvement`). One of:
+  - `heavy-draft` — AI produced the first full prose draft from Cameron's notes/outline/source material; he edited. This is the default for posts made through this skill's normal flow (source captured, then drafted here) — use it unless Cameron says the post diverged from that.
+  - `co-written` — substantial back-and-forth shaping the actual argument and text together, beyond a single draft-then-edit pass.
+  - `light-assist` — AI mainly helped organize/structure; the prose is mostly Cameron's own.
+  - Don't silently pick `co-written` or `light-assist` on a hunch — if the session doesn't clearly match `heavy-draft`, ask Cameron which tier applies rather than guessing.
 - Follow the voice guide's output expectations: after writing the file, give Cameron the post content to review plus a short `Editorial Notes` section in chat (verification-worthy claims, unclear parts of the source argument, anything you intentionally reorganized). Don't write the editorial notes into the post file itself.
 
 ## 4. Versioning

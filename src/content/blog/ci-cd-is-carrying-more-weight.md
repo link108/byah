@@ -6,6 +6,7 @@ tags: ["ai", "devops", "ci-cd"]
 series:
   name: "AI Velocity Requires Engineering Discipline"
   order: 4
+aiInvolvement: heavy-draft
 draft: true
 ---
 

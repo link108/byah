@@ -2,7 +2,7 @@
 import { getCollection, render } from "astro:content";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import VersionHistory from "../../components/VersionHistory.astro";
-import { formatDate } from "../../lib/format";
+import { formatDate, formatAiInvolvement } from "../../lib/format";
 import { buildHistory } from "../../lib/history";
 import { getSeriesPosts, getSeriesLength } from "../../lib/content";
 
@@ -40,6 +40,7 @@ const nextInSeries =
         {post.data.series && (
           <span>{post.data.series.name} · Part {post.data.series.order} of {seriesLength}</span>
         )}
+        <span class="ai-badge">{formatAiInvolvement(post.data.aiInvolvement)}</span>
         {post.data.tags.map((tag: string) => <span>#{tag}</span>)}
       </div>
     </header>

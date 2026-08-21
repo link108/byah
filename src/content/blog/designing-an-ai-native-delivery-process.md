@@ -6,6 +6,7 @@ tags: ["ai", "devops", "qa"]
 series:
   name: "AI Velocity Requires Engineering Discipline"
   order: 8
+aiInvolvement: heavy-draft
 draft: true
 ---
 

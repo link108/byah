@@ -6,6 +6,7 @@ tags: ["standards", "design", "infrastructure"]
 series:
   name: "Shared Language and AI"
   order: 1
+aiInvolvement: heavy-draft
 draft: true
 ---
 

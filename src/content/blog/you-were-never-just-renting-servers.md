@@ -3,6 +3,7 @@ title: "You Were Never Just Renting Servers"
 date: 2026-08-19
 summary: "Cloud pricing was never mostly about the hardware. It was about not having to staff the team that operates hardware well. AI is making that team smaller, which means the premium is starting to buy a lot less than it used to."
 tags: ["ai", "infrastructure", "cloud"]
+aiInvolvement: heavy-draft
 draft: true
 ---
 

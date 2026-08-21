@@ -3,6 +3,7 @@ title: "Robots Are About to Get a Compute Bill"
 date: 2026-08-19
 summary: "Traditional robotics pays a huge upfront cost to teach a machine exactly what to do, then runs it almost for free. AI robotics flips that: teaching gets cheap, and the robot starts billing you for every hour it thinks."
 tags: ["ai", "robotics", "economics"]
+aiInvolvement: heavy-draft
 draft: true
 ---
 

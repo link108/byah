@@ -6,6 +6,7 @@ tags: ["ai", "culture", "standards"]
 series:
   name: "Shared Language and AI"
   order: 3
+aiInvolvement: heavy-draft
 draft: true
 ---
 

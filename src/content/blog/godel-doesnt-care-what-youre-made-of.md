@@ -3,6 +3,7 @@ title: "Gödel Doesn't Care What You're Made Of"
 date: 2026-08-19
 summary: "A silicon mind built from binary switches should be bounded by Gödel's incompleteness theorem in a way ours isn't — that was my first instinct, anyway. It's directionally right, for the wrong reason, and the real answer is stranger than the intuition."
 tags: ["philosophy", "math", "ai"]
+aiInvolvement: heavy-draft
 draft: true
 ---
 

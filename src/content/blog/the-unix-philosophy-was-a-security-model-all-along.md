@@ -3,6 +3,7 @@ title: "The Unix Philosophy Was a Security Model All Along"
 date: 2026-08-19
 summary: "The Unix philosophy wasn't really about small programs being simpler. It was about making authority legible — and that's exactly the property that matters once the thing running your CLI isn't a person anymore."
 tags: ["ai", "security", "unix"]
+aiInvolvement: heavy-draft
 draft: true
 ---
 

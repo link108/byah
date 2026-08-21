@@ -3,6 +3,7 @@ title: "Capability Laundering"
 date: 2026-08-19
 summary: "A pattern worth naming: operational failures at frontier AI labs keep getting described in language that sounds a lot more like a capability announcement than an incident report. The failures are real. So is the marketing."
 tags: ["ai", "security", "media"]
+aiInvolvement: heavy-draft
 draft: true
 ---
 

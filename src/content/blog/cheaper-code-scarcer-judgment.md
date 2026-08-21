@@ -3,6 +3,7 @@ title: "Cheaper Code, Scarcer Judgment"
 date: 2026-08-19
 summary: "AI made it dramatically cheaper to build software. It didn't reduce how much work there is — it moved the work from implementation to deciding what's actually worth implementing."
 tags: ["ai", "product", "design"]
+aiInvolvement: heavy-draft
 draft: true
 ---
 
