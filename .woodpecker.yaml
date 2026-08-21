@@ -7,7 +7,10 @@ clone:
       # Full history, not the plugin's default partial/depth-1 clone: the
       # `history` step below needs `git log --follow` across every commit to
       # build each post's version history (src/generated/history.json).
+      # Both settings are required - `partial: true` (the plugin's default)
+      # silently overwrites `depth` down to 1 regardless of what it's set to.
       depth: 0
+      partial: false
 
 when:
   branch: main
