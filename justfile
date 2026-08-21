@@ -39,12 +39,19 @@ setup: install generate migrate seed
     @echo "Ready. Run: just dev"
 
 # Start the development server with hot reload.
-dev:
+dev: history
     DATABASE_URL="{{ database_url }}" npm run dev
 
 # Build the static site.
-build:
+build: history
     DATABASE_URL="{{ database_url }}" npm run build
+
+# Snapshot each content file's git history into src/generated/history.json
+# (read by VersionHistory.astro). Needs full git history to be meaningful -
+# see .woodpecker.yaml's clone depth for why CI runs this before docker-build
+# rather than inside the Docker image.
+history:
+    npm run history:generate
 
 # --- Database -----------------------------------------------------------------
 

@@ -4,6 +4,10 @@ clone:
     settings:
       token:
         from_secret: github_token
+      # Full history, not the plugin's default partial/depth-1 clone: the
+      # `history` step below needs `git log --follow` across every commit to
+      # build each post's version history (src/generated/history.json).
+      depth: 0
 
 when:
   branch: main
@@ -19,6 +23,16 @@ steps:
     image: node:24-alpine
     commands:
       - npm ci
+
+  - name: history
+    image: node:24-alpine
+    commands:
+      # Needs the full clone from the `clone` step above - this must run
+      # before docker-build so src/generated/history.json is already in the
+      # workspace for the Dockerfile's `COPY . .` to pick up (the Docker
+      # image itself has no git and no .git directory).
+      - apk add --no-cache git
+      - npm run history:generate
 
   - name: generate
     image: node:24-alpine

@@ -1,6 +1,5 @@
 ---
 import { formatDate } from "../lib/format";
-import { siteConfig } from "../site.config";
 import type { HistoryEntry } from "../lib/history";
 
 interface Props {
@@ -16,17 +15,16 @@ const priorRevisions = revisions.filter((r) => !r.isCurrent);
     <h2>History</h2>
     <p>
       This page is versioned — {priorRevisions.length} earlier
-      {priorRevisions.length === 1 ? "version" : "versions"} below. Full diffs are on{" "}
-      <a href={siteConfig.repoUrl}>GitHub</a>.
+      {priorRevisions.length === 1 ? "version" : "versions"} below.
     </p>
     <ol class="revision-list">
       {revisions.map((revision) => (
         <li>
           <div class="revision-meta">
             <time datetime={revision.date.toISOString()}>{formatDate(revision.date)}</time>
+            <span class="revision-hash">{revision.shortHash}</span>
             <span class="revision-message">{revision.message}</span>
             {revision.isCurrent && <span class="current-badge">Current</span>}
-            <a href={`${siteConfig.repoUrl}/commit/${revision.hash}`}>diff</a>
           </div>
           {!revision.isCurrent && revision.html && (
             <details>
@@ -64,6 +62,11 @@ const priorRevisions = revisions.filter((r) => !r.isCurrent);
     gap: 0.5rem;
     color: var(--muted);
     font-size: 0.95rem;
+  }
+
+  .revision-hash {
+    font-family: monospace;
+    font-size: 0.85rem;
   }
 
   .revision-message {

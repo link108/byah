@@ -1,8 +1,11 @@
 FROM node:24-alpine AS build
-RUN apk add --no-cache git
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
+# src/generated/history.json must already exist in the build context here -
+# it's produced by CI's `history` step (see .woodpecker.yaml), which runs
+# against the full clone before this Docker build starts. This image never
+# has git or .git, deliberately (see .dockerignore).
 COPY . .
 RUN npx prisma generate
 RUN npm run build
