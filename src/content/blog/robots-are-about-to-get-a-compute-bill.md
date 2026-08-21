@@ -4,7 +4,7 @@ date: 2026-08-19
 summary: "Traditional robotics pays a huge upfront cost to teach a machine exactly what to do, then runs it almost for free. AI robotics flips that: teaching gets cheap, and the robot starts billing you for every hour it thinks."
 tags: ["ai", "robotics", "economics"]
 aiInvolvement: heavy-draft
-draft: true
+draft: false
 ---
 
 Picture an industrial arm welding the same seam on a car door, twenty thousand times. Once it's programmed, the marginal cost of doing it the twenty-thousand-and-first time is close to zero — you're paying for electricity, wear, and maintenance. Getting it to that point is the expensive part. The [International Federation of Robotics has put programming and integration at roughly 50-70% of the total cost](https://ifr.org/post/traditional-robot-programming-vs-ai-machine-vision) of a typical robot application — a $40k arm easily turns into a $120k automation system once you count the engineering.

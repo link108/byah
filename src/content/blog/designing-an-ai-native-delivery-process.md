@@ -7,7 +7,7 @@ series:
   name: "AI Velocity Requires Engineering Discipline"
   order: 8
 aiInvolvement: heavy-draft
-draft: true
+draft: false
 ---
 
 Seven posts in, the pieces are: code generation getting cheaper shifts the bottleneck to validation. AI fails in a specific, confident-looking way that doesn't match what most review processes were built to catch — and it's not just the code, developers themselves are bad at judging whether AI is actually speeding them up. A test suite alone isn't a validation system. CI/CD ends up carrying more of the trust-building work that used to happen in a person's head. Observability picks up the failures that were never anticipated enough to test for. A repo that's legible to an agent produces fewer wrong guesses in the first place. And AI can build most of its own guardrails, as long as something deterministic still enforces them.

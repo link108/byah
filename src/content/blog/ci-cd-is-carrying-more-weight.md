@@ -7,7 +7,7 @@ series:
   name: "AI Velocity Requires Engineering Discipline"
   order: 4
 aiInvolvement: heavy-draft
-draft: true
+draft: false
 ---
 
 CI/CD used to be the thing that ran after the interesting work was done. You wrote the code, CI ran the checks, CD shipped it. Necessary, a little boring, mostly invisible unless it broke.

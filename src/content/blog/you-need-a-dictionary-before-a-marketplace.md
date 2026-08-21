@@ -7,7 +7,7 @@ series:
   name: "Shared Language and AI"
   order: 2
 aiInvolvement: heavy-draft
-draft: true
+draft: false
 ---
 
 Pantone is one example of a pattern that shows up constantly once you start looking for it: file formats, shipping container dimensions, electrical connectors, MIDI, web protocols, package interfaces, the terminology on the back of a trading card, dice notation in a tabletop game. Wildly different domains, same underlying move — a group of people agreed on a vocabulary before they agreed on anything you'd call a market.

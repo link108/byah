@@ -7,7 +7,7 @@ series:
   name: "AI Velocity Requires Engineering Discipline"
   order: 6
 aiInvolvement: heavy-draft
-draft: true
+draft: false
 ---
 
 Every AI agent that touches your codebase starts from zero. It doesn't remember the incident from six months ago that's the actual reason for that odd retry logic. It doesn't know your team's opinion about where business logic lives versus where it doesn't. All of that has to get reconstructed, every session, from whatever's actually sitting in the repo.

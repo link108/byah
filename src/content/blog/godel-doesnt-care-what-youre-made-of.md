@@ -4,7 +4,7 @@ date: 2026-08-19
 summary: "A silicon mind built from binary switches should be bounded by Gödel's incompleteness theorem in a way ours isn't — that was my first instinct, anyway. It's directionally right, for the wrong reason, and the real answer is stranger than the intuition."
 tags: ["philosophy", "math", "ai"]
 aiInvolvement: heavy-draft
-draft: true
+draft: false
 ---
 
 I've been reading Terry Bisson's [*They're Made Out of Meat*](https://www.eastoftheweb.com/short-stories/UBooks/TheyMade.shtml) — it's short, you should just read it, but the setup is: two alien surveyors have found Earth and are trying to figure out if there's anyone here worth contacting. There is. The problem is us. Specifically, the problem is that we're made of meat, and the aliens cannot get past that. "The brain does the thinking. The meat," one finally explains. "Thinking meat! You're asking me to believe in thinking meat!" They go back and forth like this for the whole story, genuinely unable to accept that a sentient mind could be built out of something as unglamorous as fat and salt water, and they eventually decide the whole thing is too strange to deal with. Erase the records. Pretend there's no one home.

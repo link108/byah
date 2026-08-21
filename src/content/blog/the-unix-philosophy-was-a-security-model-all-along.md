@@ -4,7 +4,7 @@ date: 2026-08-19
 summary: "The Unix philosophy wasn't really about small programs being simpler. It was about making authority legible — and that's exactly the property that matters once the thing running your CLI isn't a person anymore."
 tags: ["ai", "security", "unix"]
 aiInvolvement: heavy-draft
-draft: true
+draft: false
 ---
 
 My first version of this idea was: feature-stuffed CLIs are a security problem, because all that obscure, half-documented functionality is exactly what an AI agent would find and abuse, and the Unix philosophy — small tools, one job each — is the fix. I wasn't sure it held up, so I pressure-tested it before writing anything. Mostly it didn't survive intact. What's left is a sharper argument than the one I started with.

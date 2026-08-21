@@ -7,7 +7,7 @@ series:
   name: "AI Velocity Requires Engineering Discipline"
   order: 3
 aiInvolvement: heavy-draft
-draft: true
+draft: false
 ---
 
 The testing pyramid is a fine model for a specific problem: how much of each test type you should write, relative to cost and speed. Lots of fast unit tests, fewer integration tests, a handful of end-to-end tests. It's a useful shape when the bottleneck is writing tests.

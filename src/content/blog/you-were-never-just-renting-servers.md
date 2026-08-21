@@ -4,7 +4,7 @@ date: 2026-08-19
 summary: "Cloud pricing was never mostly about the hardware. It was about not having to staff the team that operates hardware well. AI is making that team smaller, which means the premium is starting to buy a lot less than it used to."
 tags: ["ai", "infrastructure", "cloud"]
 aiInvolvement: heavy-draft
-draft: true
+draft: false
 ---
 
 In October 2022, DHH announced that 37signals was leaving the cloud. Their AWS bill had hit $3.2 million a year. They spent about $700,000 on Dell servers, moved seven applications off AWS over six months, and that first year's savings paid for the hardware outright. By 2025 they'd finished the job, pulling 18 petabytes off S3 and onto owned storage, dropping a $1.5 million-a-year hosting line to under $200,000. DHH's own estimate: [more than $10 million saved over five years](https://world.hey.com/dhh/we-have-left-the-cloud-251760fb) — without hiring anyone new to run it.

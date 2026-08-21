@@ -7,7 +7,7 @@ series:
   name: "AI Velocity Requires Engineering Discipline"
   order: 5
 aiInvolvement: heavy-draft
-draft: true
+draft: false
 ---
 
 Testing and observability get lumped together sometimes, as if observability is just testing that happens to run in production. I don't think that's quite right, and the difference matters more now than it used to.

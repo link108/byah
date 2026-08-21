@@ -4,7 +4,7 @@ date: 2026-08-19
 summary: "AI made it dramatically cheaper to build software. It didn't reduce how much work there is — it moved the work from implementation to deciding what's actually worth implementing."
 tags: ["ai", "product", "design"]
 aiInvolvement: heavy-draft
-draft: true
+draft: false
 ---
 
 My homelab is the clearest version of this I actually have. It's a real k3s cluster running on a Hetzner box — the same box this exact post is being served from, along with a handful of other side projects — and AI has been a huge part of getting it as far as it has. The YAML, the bootstrap scripts, the hours of debugging why two services won't talk to each other: a lot of that got dramatically faster.

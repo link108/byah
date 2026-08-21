@@ -7,7 +7,7 @@ series:
   name: "AI Velocity Requires Engineering Discipline"
   order: 7
 aiInvolvement: heavy-draft
-draft: true
+draft: false
 ---
 
 So far this series has mostly been about why AI-generated change needs more validation, not less. This post is the more optimistic half: AI is also genuinely good at building the validation system itself, if you point it at that instead of only at features.

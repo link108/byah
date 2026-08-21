@@ -7,7 +7,7 @@ series:
   name: "AI Velocity Requires Engineering Discipline"
   order: 2
 aiInvolvement: heavy-draft
-draft: true
+draft: false
 ---
 
 Ask an AI coding tool to do something it doesn't actually know how to do, and it usually won't tell you that. It'll produce something that looks like the answer — a method call, a config flag, a library behavior — confident and syntactically perfect, and sometimes just not real.

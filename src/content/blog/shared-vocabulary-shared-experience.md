@@ -7,7 +7,7 @@ series:
   name: "Shared Language and AI"
   order: 3
 aiInvolvement: heavy-draft
-draft: true
+draft: false
 ---
 
 Say everyone in your office watched the same show last night. There's a version of Monday morning that runs partly on that — someone makes a joke that only lands if you saw it, someone's annoyed about a spoiler, someone who's one episode behind asks people to shut up about it. Small stuff, but it's doing real work. It's a shared object everyone can point at and have an opinion about.

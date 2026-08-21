@@ -7,7 +7,7 @@ series:
   name: "Shared Language and AI"
   order: 1
 aiInvolvement: heavy-draft
-draft: true
+draft: false
 ---
 
 What color is red?

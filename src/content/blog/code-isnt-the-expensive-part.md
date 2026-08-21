@@ -7,7 +7,7 @@ series:
   name: "AI Velocity Requires Engineering Discipline"
   order: 1
 aiInvolvement: heavy-draft
-draft: true
+draft: false
 ---
 
 AI is making it dramatically cheaper to produce code. But code was never the only expensive part of software.
