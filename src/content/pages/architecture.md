@@ -5,8 +5,9 @@ summary: How the workstation, project repos, CI, and cluster fit together.
 ---
 
 Most of what I build goes through the same small pipeline. But "the cluster" is
-actually two clusters on two very different machines, plus a laptop that does nothing
-but run an AI agent with its own scoped access to both. Here's the real shape of it.
+actually two clusters — a single VPS and a three-node cluster of repurposed
+hardware — plus a laptop that does nothing but run an AI agent with its own scoped
+access to both. Here's the real shape of it.
 
 ```text
    dev-setup (laptop)
@@ -25,16 +26,17 @@ but run an AI agent with its own scoped access to both. Here's the real shape of
         |                Tailscale tailnet                    |
         |                                                      |
         v                                                      v
-   hetzner (Hetzner VPS, k3s)                     openclaw-node (Mac, k3s)
-   byah · deckforge · landlordlog                  Woodpecker build agent
-   cutty-bangerz · slopyard                        BuildKit · Grafana mirror
-   game-theory-sim · reliquary-works
+   hetzner (Hetzner VPS, k3s)                     homelab (3-node k3s)
+   byah · deckforge · landlordlog                  nuc-a · nuc-b · homelab-mac
+   bodega-bartender · slopyard                     Woodpecker build agent · BuildKit
+   game-theory-sim · reliquary-works                Plane · Grafana/VictoriaMetrics
+   games · meandering-megan
    host Postgres/Redis · Cloudflare tunnel
         ^
         | ssh, dispatcher-restricted commands only
         |
    openclaw-gateway (headless Linux laptop)
-   OpenClaw agent + 6 MCP servers + Slack
+   OpenClaw agent + 7 MCP servers + Slack
 ```
 
 [dev-setup](/projects/dev-setup/) is the machine I write everything on — nothing here
@@ -44,12 +46,16 @@ and opens a deploy PR against [homelab](/projects/homelab/), which holds the k3s
 manifests and pins the image tags. Woodpecker auto-merges that PR and applies it to
 **hetzner**, the production cluster.
 
-**openclaw-node** is a second, independent k3s cluster — a 2017 MacBook running
-Rancher Desktop — that exists purely to take CI load off the VPS: it runs its own
-Woodpecker build agent and a BuildKit daemon. And **openclaw-gateway** isn't a cluster
-at all — it's a dedicated Linux box running a self-hosted AI agent (OpenClaw) that
-operates both clusters, with deliberately different levels of trust for each. That
-part — the agent layer, the RBAC split, how an autonomous agent gets to touch
+The second cluster — yes, also called **homelab**, same as the repo — is three
+machines instead of one now: two Intel NUCs (`nuc-a`, `nuc-b`) plus the 2017 MacBook
+Pro that used to run it solo, wiped and rebuilt as `homelab-mac` running Ubuntu Server
+after its old Rancher Desktop setup died for good. Together they take CI load off the
+VPS (a Woodpecker build agent, BuildKit) and host lower-stakes internal services
+(Plane, the Grafana/VictoriaMetrics stack) — `homelab-mac` carries the actual stateful
+data since it's the most reliable of the three. And **openclaw-gateway** isn't a
+cluster at all — it's a dedicated Linux box running a self-hosted AI agent (OpenClaw)
+that operates both clusters, with deliberately different levels of trust for each.
+That part — the agent layer, the RBAC split, how an autonomous agent gets to touch
 production without a blank check — is its own page:
 [how I actually run this](/development).
 

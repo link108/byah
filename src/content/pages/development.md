@@ -7,10 +7,10 @@ summary: The hosts, clusters, and agent layer behind how these projects actually
 Most of what's on this site ships through a pipeline that looks unremarkable from the
 outside — push to GitHub, CI builds an image, it lands on a VPS. What's underneath
 that is less usual: two independent k3s clusters, a self-hosted AI agent with its own
-scoped access to both, and a laptop doing full-time duty as a build node. None of this
-needed to be this deliberate for a one-person project, but the agent doing a lot of
-the day-to-day operating work needed the same kind of guardrails a team of humans
-would insist on, so I ended up building them anyway.
+scoped access to both, and a pile of repurposed hardware doing full-time duty as a
+build cluster. None of this needed to be this deliberate for a one-person project, but
+the agent doing a lot of the day-to-day operating work needed the same kind of
+guardrails a team of humans would insist on, so I ended up building them anyway.
 
 This is the part that doesn't fit on a project card: the actual hosts, how the two
 clusters differ in what they're trusted to do, and how an agent gets to touch
@@ -18,17 +18,23 @@ production without being able to reach `kubectl delete` on a Tuesday afternoon.
 
 ## The Hosts
 
-Three machines, three different jobs:
+Five machines, three different jobs:
 
 - **hetzner** (`ubuntu-4gb-hil-1`) — a Hetzner Cloud VPS running the production k3s
-  cluster: all seven live apps, the Woodpecker CI server, host-level Postgres and
+  cluster: all nine live apps, the Woodpecker CI server, host-level Postgres and
   Redis, the Cloudflare tunnel, and the observability stack.
 - **openclaw-gateway** — a headless Ubuntu box (an old Core i7-4500U laptop, 7 GB of
   RAM, repurposed rather than bought) that runs nothing app-related. Its only job is
   the OpenClaw agent gateway — the thing that does a lot of the day-to-day operating.
-- **openclaw-node** — a 2017 MacBook Pro (16 GB RAM) running a second, independent
-  k3s cluster via Rancher Desktop. It exists to take CI load off the VPS: a
-  Woodpecker build agent, a BuildKit daemon, and a Grafana/VictoriaMetrics mirror.
+- **homelab** — a second, independent k3s cluster, and the one that's changed the
+  most: two Intel NUCs (`nuc-a`, `nuc-b`) plus the 2017 MacBook Pro (16 GB RAM) that
+  used to run this cluster alone via Rancher Desktop, wiped and rebuilt as
+  `homelab-mac` running plain Ubuntu Server after that setup died for good. Three
+  nodes, ~24 cores / ~47 GB combined. It exists to take CI load off the VPS — a
+  Woodpecker build agent, a BuildKit daemon — and now also hosts Plane and the
+  Grafana/VictoriaMetrics stack. `homelab-mac` carries the label
+  `homelab.link108/role=storage` and is the one node with actual stateful data
+  pinned to it, since it's the newest and most reliable of the three.
 
 None of this is cloud-scale hardware. The interesting part isn't the specs — it's how
 carefully the boundaries between them are drawn.
@@ -38,37 +44,42 @@ carefully the boundaries between them are drawn.
                               |
         +----------------------+-----------------------+
         |                                               |
- openclaw-gateway                                openclaw-node
- (headless Linux laptop)                         (2017 MacBook Pro)
- OpenClaw agent + Slack                    k3s: Woodpecker build agent,
- + 6 MCP servers                           BuildKit, Grafana mirror
+ openclaw-gateway                                homelab (3-node k3s)
+ (headless Linux laptop)                         nuc-a · nuc-b · homelab-mac
+ OpenClaw agent + Slack                    Woodpecker build agent, BuildKit,
+ + 7 MCP servers                           Plane, Grafana/VictoriaMetrics
         |
         | ssh, dispatcher-restricted commands only
         v
  hetzner (Hetzner VPS, k3s)
- byah · deckforge · landlordlog · cutty-bangerz
+ byah · deckforge · landlordlog · bodega-bartender
  slopyard · game-theory-sim · reliquary-works
+ games · meandering-megan
  Woodpecker server · host Postgres/Redis
  Cloudflare tunnel · observability stack
 ```
 
 ## Two Clusters, Two Trust Levels
 
-hetzner and openclaw-node are both k3s, but the agent's access to each is
-intentionally lopsided. On hetzner — the cluster actually running production traffic
-— the ServiceAccount OpenClaw authenticates as gets a ClusterRole called
-`openclaw-reader`: get/list/watch on pods, services, deployments, jobs, nodes,
-events, and pod logs, plus `metrics.k8s.io` for `kubectl top`. No secrets. No write
-verbs at all. If the agent needs to actually change something on hetzner, it has to
-go through a different door entirely (below).
+hetzner and homelab are both k3s, but the agent's access to each is intentionally
+lopsided. On hetzner — the cluster actually running production traffic — the
+ServiceAccount OpenClaw authenticates as gets a ClusterRole called `openclaw-reader`:
+get/list/watch on pods, services, deployments, jobs, nodes, events, and pod logs, plus
+`metrics.k8s.io` for `kubectl top`. No secrets. No write verbs at all. If the agent
+needs to actually change something on hetzner, it has to go through a different door
+entirely (below).
 
-On openclaw-node, the same ClusterRole name carries real write permissions:
+On homelab, the same ClusterRole name carries real write permissions:
 create/update/patch/delete on deployments, statefulsets, services, configmaps, PVCs,
 jobs, and ingresses — but still explicitly no Secret access, no Namespace
 create/delete, no cluster-admin. That's not an oversight; the RBAC manifest says so
-directly in its own comments. openclaw-node is a CI/build box with nothing
-customer-facing on it, so letting the agent actually deploy things there is a
-reasonable blast radius. hetzner is not, so it doesn't get that.
+directly in its own comments. homelab is a CI/build cluster with nothing
+customer-facing on it (Plane included — it's internal, tailnet-only), so letting the
+agent actually deploy things there is a reasonable blast radius. hetzner is not, so it
+doesn't get that. One thing the rebuild fixed along the way: the kubeconfig now points
+at `nuc-b`'s real Tailscale-issued cert instead of the old Mac cluster's
+self-signed one, so this is the one connection that no longer needs
+`insecure-skip-tls-verify`.
 
 ## Getting Code Out the Door
 
@@ -92,8 +103,8 @@ for anything heavier: `deepseek-v4-pro` for multi-step reasoning and debugging,
 Routing is just an exec call the orchestrator makes to itself, not a separate
 service.
 
-It's wired into six MCP servers — Grafana, both Kubernetes clusters, Woodpecker,
-GitHub, and Notion — the same ones, as it happens, that the Claude Code session
+It's wired into seven MCP servers — Grafana, both Kubernetes clusters, Woodpecker,
+GitHub, Notion, and Plane — the same ones, as it happens, that the Claude Code session
 writing this page has access to. Same backends, same scopes, two different front
 doors.
 
@@ -144,22 +155,33 @@ layer to `/hook` and `/authorize`; everything else 404s before it reaches Woodpe
 
 Internal-only hostnames get the same treatment through Tailscale's Split DNS:
 `grafana.byah.org` and `plane.byah.org` resolve only for tailnet devices, answered by
-a dnsmasq instance running directly on openclaw-node rather than inside its cluster —
-Rancher Desktop only forwards one LoadBalancer service's ports to the Mac's real
-network interfaces, found that the hard way. Neither hostname has a public DNS
-record, and it's not because someone remembered to lock it down. There's just nothing
-there to find.
+a dnsmasq instance running directly on `nuc-b` rather than inside the cluster — any
+homelab node's IP would work equally, since Traefik's ingress runs on all three via
+k3s's built-in ServiceLB, but `nuc-b` is a stable-enough anchor. (This replaced the
+old openclaw-node/Mac version of the same idea, which existed to work around a
+Rancher Desktop host-networking bug that doesn't exist on bare-metal k3s.) Neither
+hostname has a public DNS record, and it's not because someone remembered to lock it
+down. There's just nothing there to find.
 
 ## What's Still Moving
 
-The three-host picture above is closer to a snapshot than a finished design.
-openclaw-node is currently running the OpenClaw Gateway role itself — a LaunchAgent
-on the same Mac that's supposed to be a disposable build box — while
-openclaw-gateway, the machine actually meant for that job, gets bootstrapped and
-verified. The cutover only happens once the Linux gateway is confirmed healthy
-end-to-end; until then, nobody touches the Mac's OpenClaw process. Plane got pulled
-off openclaw-node the day before this was written, purely to free up capacity for the
-build workload it actually exists for.
+The five-host picture above replaced an earlier one. openclaw-node used to be this
+same 2017 MacBook Pro running solo as its own k3s cluster via Rancher Desktop —
+including, for a while, the OpenClaw Gateway process itself, running as a LaunchAgent
+on the same box that was supposed to be a disposable build node, pending a cutover to
+openclaw-gateway once that machine was confirmed healthy. That cluster died for good.
+The fix wasn't nursing it back to health; it was wiping the Mac, installing Ubuntu
+Server, buying two Intel NUCs, and standing up `homelab` as an actual three-node
+cluster with `homelab-mac` as just one member of it. The gateway cutover happened
+along the way, by necessity — there's no macOS left on that machine to run a
+LaunchAgent on.
+
+Not every trade-off from that rebuild is resolved, just made deliberately. Postgres
+and Redis on homelab run as single-instance StatefulSets pinned to `homelab-mac`
+rather than anything HA (CloudNativePG, Redis Sentinel) — if that node goes down,
+both go down with it until it's back. That's written into the repo's own decision
+record, not left implicit, with the explicit call to revisit only if node-reboot
+downtime actually becomes painful.
 
 None of that is a problem to hide. A homelab that's honest about which parts are
 load-bearing and which parts are still being poured is more useful than one that
