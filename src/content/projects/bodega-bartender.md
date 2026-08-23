@@ -1,5 +1,5 @@
 ---
-title: cutty-bangerz
+title: bodega-bartender
 status: active
 summary: Mobile-first drink generator grounded in a real liquor and convenience-store catalog, with a review-gated retailer ingestion pipeline and a community recipe library.
 stack:
@@ -10,7 +10,7 @@ stack:
   - Leaflet
 links:
   - label: Live
-    url: https://drank.byah.org
+    url: https://bodega-bartender.byah.org
   - label: Source
     url: https://github.com/link108/cutty-bangerz
 featured: false

@@ -10,9 +10,11 @@ import node from "@astrojs/node";
 const liveProjectSubdomains = [
   "https://game-theory.byah.org/",
   "https://slopyard.byah.org/",
-  "https://drank.byah.org/",
+  "https://bodega-bartender.byah.org/",
   "https://deckforge.byah.org/",
-  "https://reliquary-works.byah.org/"
+  "https://reliquary-works.byah.org/",
+  "https://games.byah.org/",
+  "https://meandering-megan.byah.org/"
 ];
 
 export default defineConfig({
