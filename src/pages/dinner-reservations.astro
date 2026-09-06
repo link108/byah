@@ -1,0 +1,1270 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const eveningFlow = [
+  { time: "4:00 PM", label: "Meet in Park City" },
+  { time: "4:30 PM", label: "Shuttle to the private location" },
+  { time: "Evening", label: "Activities, then dinner + drinks" },
+  { time: "~9:00 PM", label: "Back in Park City" }
+];
+---
+
+<BaseLayout
+  title="Dinner Reservations"
+  description="Reserve a seat at a BYAH dinner night in Park City — up to 24 guests. Pick a date, tell us who's coming, and check out."
+  currentPath="/dinner-reservations"
+>
+  <section>
+    <span class="eyebrow">BYAH dinner nights · Park City</span>
+    <h1>Dinner Reservations</h1>
+    <p class="content-body">
+      A private dinner night runs most evenings with up to 24 guests: we meet at
+      4:00&nbsp;PM in Park City, drive you to a private location nearby, and
+      take care of the rest — activities, dinner, and drinks — before dropping
+      you back in Park City around 9:00&nbsp;PM. The meetup spot and the exact
+      location are shared after you book.
+    </p>
+    <ul class="dr-flow">
+      {eveningFlow.map((f) => (
+        <li>
+          <strong>{f.time}</strong>
+          <span>{f.label}</span>
+        </li>
+      ))}
+    </ul>
+  </section>
+
+  <section class="section-rule">
+    <div class="dr-widget" id="dr-widget">
+      <div id="dr-body"></div>
+      <p class="dr-demo-note" id="dr-demo-note"></p>
+    </div>
+  </section>
+
+  <section class="section-rule" id="dr-mine-section">
+    <div class="dr-mine-head">
+      <h2 id="dr-mine-title">My reservations</h2>
+      <button type="button" class="dr-link-btn" id="dr-clear-all">Clear all demo data</button>
+    </div>
+    <ul class="dr-mine" id="dr-mine"></ul>
+  </section>
+</BaseLayout>
+
+<script>
+  // ---------------------------------------------------------------------------
+  // BYAH dinner reservations — client-side demo.
+  //
+  // Reservations are stored in localStorage under one key per browser. There is
+  // no server or database behind this yet, so capacity is enforced per browser
+  // only. The payment step is a clearly-labeled stub: nothing is charged and no
+  // card data leaves this page. Swapping this module for a small API (the same
+  // pattern as /beernbbq's Postgres routes) is the intended upgrade path.
+  // ---------------------------------------------------------------------------
+
+  const CAPACITY = 24;
+  // TODO(cameron): set the real per-guest price before launch.
+  const PRICE_PER_GUEST = 175;
+  const STORAGE_KEY = "byah.dinner-reservations.v1";
+
+  type Reservation = {
+    id: string;
+    date: string; // local yyyy-mm-dd
+    partySize: number;
+    leadName: string;
+    email: string;
+    note: string;
+    createdAt: number;
+  };
+
+  type Store = Record<string, Reservation[]>;
+
+  const money = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD"
+  });
+
+  function $<T extends HTMLElement = HTMLElement>(id: string): T {
+    const el = document.getElementById(id);
+    if (!el) throw new Error(`missing element #${id}`);
+    return el as T;
+  }
+
+  // Optional lookup for elements that only exist on some wizard steps.
+  function maybe<T extends HTMLElement>(id: string): T | null {
+    return document.getElementById(id) as T | null;
+  }
+
+  // --- persistence -----------------------------------------------------------
+
+  function loadStore(): Store {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return {};
+      const parsed: unknown = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? (parsed as Store) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  let store: Store = loadStore();
+
+  function saveStore(): void {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+  }
+
+  // --- date helpers (all local-time, no UTC round-trips) ---------------------
+
+  function pad(n: number): string {
+    return String(n).padStart(2, "0");
+  }
+
+  function dateKey(d: Date): string {
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  function parseKey(key: string): Date {
+    const [y, m, d] = key.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  const now = new Date();
+  const todayKey = dateKey(now);
+
+  function monthLabel(year: number, month: number): string {
+    return new Date(year, month, 1).toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric"
+    });
+  }
+
+  function fmtLong(key: string): string {
+    return parseKey(key).toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric"
+    });
+  }
+
+  function fmtShort(key: string): string {
+    return parseKey(key).toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric"
+    });
+  }
+
+  // --- capacity --------------------------------------------------------------
+
+  function reservationsFor(date: string): Reservation[] {
+    return store[date] ?? [];
+  }
+
+  function totalFor(date: string): number {
+    return reservationsFor(date).reduce((sum, r) => sum + r.partySize, 0);
+  }
+
+  function leftFor(date: string): number {
+    return CAPACITY - totalFor(date);
+  }
+
+  // --- escape user content rendered into HTML strings ------------------------
+
+  function esc(s: string): string {
+    return s.replace(
+      /[&<>"']/g,
+      (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+          c
+        ] ?? c
+    );
+  }
+
+  // --- wizard state ----------------------------------------------------------
+
+  type Step = "calendar" | "details" | "payment" | "done";
+
+  let step: Step = "calendar";
+  let selected: string | null = null;
+  let partySize = 2;
+  let draft = { leadName: "", email: "", note: "" };
+  let card = { holder: "", number: "", expiry: "", cvc: "" };
+  let error = "";
+  let lastReservation: Reservation | null = null;
+
+  // Calendar view: first day of the displayed month.
+  let view = { year: now.getFullYear(), month: now.getMonth() };
+
+  // --- tiny HTML helpers -----------------------------------------------------
+
+  function stepsRail(): string {
+    const labels: [Step, string][] = [
+      ["calendar", "1 · Date"],
+      ["details", "2 · Details"],
+      ["payment", "3 · Checkout"]
+    ];
+    return `<div class="dr-steps" role="list" aria-label="Booking progress">${labels
+      .map(
+        ([s, label]) =>
+          `<span role="listitem" class="dr-step${step === s ? " dr-step--active" : ""}" data-step-label="${s}">${label}</span>`
+      )
+      .join("")}</div>`;
+  }
+
+  function backLink(): string {
+    return `<p class="dr-change-date"><button type="button" class="dr-link-btn" data-action="change-date">← Change date</button></p>`;
+  }
+
+  // --- calendar step ---------------------------------------------------------
+
+  function renderCalendarPanel(): string {
+    const first = new Date(view.year, view.month, 1);
+    const offset = first.getDay();
+    const daysInMonth = new Date(view.year, view.month + 1, 0).getDate();
+    const prevDisabled =
+      view.year === now.getFullYear() && view.month === now.getMonth();
+
+    let cells = "";
+    for (let i = 0; i < offset; i++) {
+      cells += `<span class="dr-cell dr-cell--empty" aria-hidden="true"></span>`;
+    }
+    for (let day = 1; day <= daysInMonth; day++) {
+      const key = dateKey(new Date(view.year, view.month, day));
+      const isPast = key < todayKey;
+      const left = leftFor(key);
+      const full = left <= 0;
+      const isToday = key === todayKey;
+      const isSelected = key === selected;
+
+      let label: string;
+      if (isPast) label = "past";
+      else if (full) label = "full";
+      else label = `${left} ${left === 1 ? "seat" : "seats"} left`;
+
+      cells += `<button
+        type="button"
+        class="dr-cell${isSelected ? " dr-cell--selected" : ""}${isToday ? " dr-cell--today" : ""}"
+        data-action="pick-date"
+        data-date="${key}"
+        aria-label="${fmtShort(key)} — ${label}"
+        ${isPast || full ? "disabled" : ""}
+      >
+        <span class="dr-cell-day">${day}</span>
+        <span class="dr-cell-left">${isPast ? "" : label}</span>
+      </button>`;
+    }
+
+    const hint = selected
+      ? `<div class="dr-calselect">
+          <span>Selected: <strong>${fmtLong(selected)}</strong> — ${leftFor(selected)} of ${CAPACITY} seats still open.</span>
+        </div>`
+      : `<p class="dr-calselect dr-calselect--idle">Pick any open night below to start your reservation. Up to ${CAPACITY} guests per night.</p>`;
+
+    return `
+      ${stepsRail()}
+      <div class="dr-cal">
+        <div class="dr-cal-nav">
+          <button type="button" class="dr-cal-arrow" data-action="prev-month" aria-label="Previous month" ${prevDisabled ? "disabled" : ""}>‹</button>
+          <span class="dr-cal-month">${monthLabel(view.year, view.month)}</span>
+          <button type="button" class="dr-cal-arrow" data-action="next-month" aria-label="Next month">›</button>
+        </div>
+        <div class="dr-weekdays" aria-hidden="true">
+          ${["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => `<span>${d}</span>`).join("")}
+        </div>
+        <div class="dr-grid">${cells}</div>
+      </div>
+      <div class="dr-legend"><span class="dr-legend-dot dr-legend-dot--open"></span> open &nbsp;·&nbsp; <span class="dr-legend-dot dr-legend-dot--full"></span> full</div>
+      ${hint}
+    `;
+  }
+
+  // --- details step ----------------------------------------------------------
+
+  function renderDetailsPanel(): string {
+    if (!selected) {
+      step = "calendar";
+      return renderCalendarPanel();
+    }
+    const left = leftFor(selected);
+    const subtotal = partySize * PRICE_PER_GUEST;
+
+    const errorHtml = error
+      ? `<p class="dr-error" role="alert">${esc(error)}</p>`
+      : "";
+
+    return `
+      ${stepsRail()}
+      <div class="dr-panel">
+        <p class="dr-date-line"><strong>${fmtLong(selected)}</strong> · ${left} of ${CAPACITY} seats left</p>
+        ${backLink()}
+
+        <div class="dr-field">
+          <label for="dr-party">Party size <span class="dr-required">*</span></label>
+          <div class="dr-stepper">
+            <button type="button" class="dr-step-btn" data-action="party-delta" data-delta="-1" aria-label="Fewer guests" ${partySize <= 1 ? "disabled" : ""}>−</button>
+            <output id="dr-party" class="dr-party-out">${partySize}</output>
+            <button type="button" class="dr-step-btn" data-action="party-delta" data-delta="1" aria-label="More guests" ${partySize >= left ? "disabled" : ""}>+</button>
+          </div>
+          <p class="dr-field-hint">${partySize >= left ? "That fills the night — nice." : `You can add up to ${left - partySize} more.`}</p>
+        </div>
+
+        <form id="dr-details-form" novalidate>
+          <div class="dr-field">
+            <label for="dr-name">Lead guest name <span class="dr-required">*</span></label>
+            <input id="dr-name" type="text" autocomplete="name" value="${esc(draft.leadName)}" placeholder="Name for the reservation" />
+          </div>
+          <div class="dr-field">
+            <label for="dr-email">Email <span class="dr-required">*</span></label>
+            <input id="dr-email" type="email" autocomplete="email" value="${esc(draft.email)}" placeholder="you@example.com" />
+            <p class="dr-field-hint">Where we'd send your reservation details.</p>
+          </div>
+          <div class="dr-field">
+            <label for="dr-note">Anything we should know? <span class="dr-optional">optional</span></label>
+            <textarea id="dr-note" rows="3" placeholder="Allergies, questions, a birthday…">${esc(draft.note)}</textarea>
+          </div>
+          ${errorHtml}
+          <div class="dr-submit-row">
+            <span class="dr-subtotal">${partySize} ${partySize === 1 ? "guest" : "guests"} · ${money.format(subtotal)}</span>
+            <button type="submit" class="dr-btn dr-btn--primary">Continue to checkout →</button>
+          </div>
+        </form>
+      </div>
+    `;
+  }
+
+  // --- payment step (stub) ---------------------------------------------------
+
+  function renderPaymentPanel(): string {
+    if (!selected) {
+      step = "calendar";
+      return renderCalendarPanel();
+    }
+    const left = leftFor(selected);
+    const total = partySize * PRICE_PER_GUEST;
+
+    const errorHtml = error
+      ? `<p class="dr-error" role="alert">${esc(error)}</p>`
+      : "";
+
+    return `
+      ${stepsRail()}
+      <div class="dr-panel">
+        <p class="dr-date-line"><strong>${fmtLong(selected)}</strong> · ${left} of ${CAPACITY} seats left</p>
+        ${backLink()}
+
+        <div class="dr-demo-banner" role="note">
+          <strong>Demo checkout.</strong> This payment form is a stub — no card is
+          charged and nothing is sent anywhere.
+        </div>
+
+        <div class="dr-summary">
+          <div class="dr-summary-row"><span>${partySize} ${partySize === 1 ? "guest" : "guests"} × ${money.format(PRICE_PER_GUEST)}</span><span>${money.format(total)}</span></div>
+          <div class="dr-summary-row dr-summary-row--total"><span>Total</span><span>${money.format(total)}</span></div>
+        </div>
+
+        <form id="dr-pay-form" novalidate>
+          <div class="dr-field">
+            <label for="card-holder">Name on card</label>
+            <input id="card-holder" type="text" autocomplete="cc-name" value="${esc(card.holder)}" placeholder="Full name" />
+          </div>
+          <div class="dr-field">
+            <label for="card-number">Card number</label>
+            <input id="card-number" type="text" inputmode="numeric" autocomplete="cc-number" value="${esc(card.number)}" placeholder="0000 0000 0000 0000" />
+          </div>
+          <div class="dr-field-row">
+            <div class="dr-field">
+              <label for="card-expiry">Expiry</label>
+              <input id="card-expiry" type="text" inputmode="numeric" autocomplete="cc-exp" value="${esc(card.expiry)}" placeholder="MM/YY" />
+            </div>
+            <div class="dr-field">
+              <label for="card-cvc">CVC</label>
+              <input id="card-cvc" type="text" inputmode="numeric" autocomplete="cc-csc" value="${esc(card.cvc)}" placeholder="123" />
+            </div>
+          </div>
+          ${errorHtml}
+          <div class="dr-submit-row">
+            <span class="dr-subtotal">Due today: ${money.format(total)}</span>
+            <button type="submit" class="dr-btn dr-btn--primary" id="dr-pay-btn">Reserve for ${money.format(total)}</button>
+          </div>
+        </form>
+      </div>
+    `;
+  }
+
+  // --- confirmation step -----------------------------------------------------
+
+  function renderDonePanel(): string {
+    const r = lastReservation;
+    if (!r) {
+      step = "calendar";
+      return renderCalendarPanel();
+    }
+    return `
+      ${stepsRail()}
+      <div class="dr-panel dr-panel--done">
+        <p class="dr-check">✓</p>
+        <h2>You're booked${r.leadName ? `, ${esc(r.leadName.split(" ")[0])}` : ""}!</h2>
+        <p class="dr-code">Reservation code: <strong>${esc(r.id)}</strong></p>
+        <ul class="dr-done-list">
+          <li><strong>${fmtLong(r.date)}</strong></li>
+          <li>${r.partySize} ${r.partySize === 1 ? "guest" : "guests"}</li>
+          <li>Meet at 4:00 PM in Park City · back ~9:00 PM</li>
+        </ul>
+        <p class="dr-done-note">In the real version this confirmation would be emailed to ${esc(r.email)} along with the meetup spot. This demo stores it in your browser only.</p>
+        <div class="dr-done-actions">
+          <button type="button" class="dr-btn" data-action="goto-reservations">View my reservations</button>
+          <button type="button" class="dr-btn dr-btn--primary" data-action="book-another">Book another night →</button>
+        </div>
+      </div>
+    `;
+  }
+
+  // --- reservations list -----------------------------------------------------
+
+  function allReservations(): Reservation[] {
+    return Object.values(store)
+      .flat()
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  }
+
+  function renderMine(): void {
+    const list = allReservations();
+    const title = $("dr-mine-title");
+    title.textContent = list.length
+      ? `My reservations (${list.length})`
+      : "My reservations";
+
+    const ul = $("dr-mine");
+    if (!list.length) {
+      ul.innerHTML = `<li class="dr-mine-empty">No reservations yet — pick an open night above.</li>`;
+      return;
+    }
+    ul.innerHTML = list
+      .map(
+        (r) => `
+        <li class="dr-mine-item">
+          <div class="dr-mine-main">
+            <strong>${fmtLong(r.date)}</strong>
+            <span class="dr-mine-meta">${esc(r.id)} · ${r.partySize} ${r.partySize === 1 ? "guest" : "guests"} · ${esc(r.leadName || "—")}</span>
+          </div>
+          <button type="button" class="dr-link-btn" data-action="cancel-reservation" data-id="${esc(r.id)}">Cancel</button>
+        </li>`
+      )
+      .join("");
+  }
+
+  // --- rendering -------------------------------------------------------------
+
+  function renderBody(): void {
+    // A cancellation (or another booking) can shrink a night's remaining seats
+    // mid-flow — clamp the party size, or bounce back to the calendar when the
+    // night has filled up entirely.
+    if ((step === "details" || step === "payment") && selected) {
+      const left = leftFor(selected);
+      if (left <= 0) {
+        selected = null;
+        step = "calendar";
+      } else if (partySize > left) {
+        partySize = left;
+      }
+    }
+
+    const body = $("dr-body");
+    if (step === "calendar") body.innerHTML = renderCalendarPanel();
+    else if (step === "details") body.innerHTML = renderDetailsPanel();
+    else if (step === "payment") body.innerHTML = renderPaymentPanel();
+    else body.innerHTML = renderDonePanel();
+
+    const note = $("dr-demo-note");
+    note.textContent =
+      step === "payment"
+        ? "Demo prototype: no payment is processed, and bookings live only in this browser (localStorage)."
+        : "";
+
+    bindPanel();
+  }
+
+  function renderAll(): void {
+    renderBody();
+    renderMine();
+  }
+
+  // --- input formatting helpers ----------------------------------------------
+
+  function digits(s: string): string {
+    return s.replace(/\D/g, "");
+  }
+
+  function formatCardNumber(s: string): string {
+    const d = digits(s).slice(0, 16);
+    return d.replace(/(\d{4})(?=\d)/g, "$1 ");
+  }
+
+  function formatExpiry(s: string): string {
+    const d = digits(s).slice(0, 4);
+    if (d.length <= 2) return d;
+    return `${d.slice(0, 2)}/${d.slice(2)}`;
+  }
+
+  // --- validation ------------------------------------------------------------
+
+  function validateDetails(): string {
+    if (!draft.leadName.trim()) return "Please add the lead guest's name.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim()))
+      return "Please add a valid email address.";
+    if (partySize < 1) return "Party size must be at least 1.";
+    if (selected && partySize > leftFor(selected))
+      return "That party is bigger than the seats left that night.";
+    return "";
+  }
+
+  function validateCard(): string {
+    if (!card.holder.trim()) return "Please add the name on the card.";
+    const num = digits(card.number);
+    if (num.length < 15 || num.length > 16)
+      return "Card number should be 15–16 digits.";
+    const exp = digits(card.expiry);
+    if (exp.length !== 4) return "Expiry should be MM/YY.";
+    const mm = Number(exp.slice(0, 2));
+    const yy = Number(exp.slice(2));
+    const nowYy = now.getFullYear() % 100;
+    if (mm < 1 || mm > 12) return "Expiry month should be 01–12.";
+    if (yy < nowYy || (yy === nowYy && mm < now.getMonth() + 1))
+      return "That card has expired.";
+    const cvc = digits(card.cvc);
+    if (cvc.length < 3 || cvc.length > 4) return "CVC should be 3–4 digits.";
+    return "";
+  }
+
+  function newCode(): string {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let code = "";
+    for (let i = 0; i < 4; i++) {
+      code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return `BYAH-${code}`;
+  }
+
+  // --- actions ---------------------------------------------------------------
+
+  function pickDate(key: string): void {
+    if (key < todayKey || leftFor(key) <= 0) return;
+    selected = key;
+    const left = leftFor(key);
+    partySize = Math.min(Math.max(partySize, 1), left);
+    draft = { leadName: "", email: "", note: "" };
+    card = { holder: "", number: "", expiry: "", cvc: "" };
+    error = "";
+    step = "details";
+    renderAll();
+    $("dr-widget").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function changeDate(): void {
+    if (selected) {
+      const d = parseKey(selected);
+      view = { year: d.getFullYear(), month: d.getMonth() };
+    }
+    error = "";
+    step = "calendar";
+    renderAll();
+  }
+
+  function submitDetails(): void {
+    error = validateDetails();
+    if (error) {
+      renderAll();
+      return;
+    }
+    error = "";
+    step = "payment";
+    renderAll();
+    $("dr-widget").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function submitPayment(): void {
+    // Capacity re-check right before booking — seats may have been freed or
+    // taken while the guest sat on the checkout step.
+    if (!selected || totalFor(selected) + partySize > CAPACITY) {
+      error = "Sorry — that night's remaining seats changed. Pick again.";
+      step = "details";
+      renderAll();
+      return;
+    }
+    error = validateCard();
+    if (error) {
+      renderAll();
+      return;
+    }
+    const btn = $<HTMLButtonElement>("dr-pay-btn");
+    btn.disabled = true;
+    btn.textContent = "Reserving…";
+
+    // Fake processing delay — no network call happens in the demo.
+    window.setTimeout(() => {
+      if (!selected) return;
+      const res: Reservation = {
+        id: newCode(),
+        date: selected,
+        partySize,
+        leadName: draft.leadName.trim(),
+        email: draft.email.trim(),
+        note: draft.note.trim(),
+        createdAt: Date.now()
+      };
+      const list = store[selected] ?? [];
+      store[selected] = [...list, res];
+      saveStore();
+      lastReservation = res;
+      step = "done";
+      renderAll();
+      $("dr-widget").scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 900);
+  }
+
+  function cancelReservation(id: string): void {
+    const all = allReservations();
+    const target = all.find((r) => r.id === id);
+    if (!target) return;
+    if (
+      !window.confirm(
+        `Cancel the ${fmtShort(target.date)} reservation for ${target.partySize} ${
+          target.partySize === 1 ? "guest" : "guests"
+        }?`
+      )
+    ) {
+      return;
+    }
+    store[target.date] = (store[target.date] ?? []).filter((r) => r.id !== id);
+    if ((store[target.date] ?? []).length === 0) delete store[target.date];
+    saveStore();
+    if (lastReservation?.id === id) lastReservation = null;
+    if (step === "done") {
+      step = "calendar";
+      if (selected) {
+        const d = parseKey(selected);
+        view = { year: d.getFullYear(), month: d.getMonth() };
+      }
+    }
+    renderAll();
+  }
+
+  function clearAll(): void {
+    if (
+      !window.confirm(
+        "Clear all demo reservations stored in this browser? This only affects this device."
+      )
+    ) {
+      return;
+    }
+    store = {};
+    saveStore();
+    lastReservation = null;
+    step = "calendar";
+    selected = null;
+    renderAll();
+  }
+
+  function bookAnother(): void {
+    selected = null;
+    partySize = 2;
+    draft = { leadName: "", email: "", note: "" };
+    card = { holder: "", number: "", expiry: "", cvc: "" };
+    error = "";
+    view = { year: now.getFullYear(), month: now.getMonth() };
+    step = "calendar";
+    renderAll();
+    $("dr-widget").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  // --- event wiring ----------------------------------------------------------
+
+  function bindPanel(): void {
+    const body = $("dr-body");
+
+    body.addEventListener("click", (ev) => {
+      const target = (ev.target as HTMLElement).closest<HTMLElement>(
+        "[data-action]"
+      );
+      if (!target) return;
+      const action = target.dataset.action;
+      const date = target.dataset.date;
+
+      if (action === "prev-month") {
+        if (view.year === now.getFullYear() && view.month === now.getMonth())
+          return;
+        view =
+          view.month === 0
+            ? { year: view.year - 1, month: 11 }
+            : { year: view.year, month: view.month - 1 };
+        renderBody();
+      } else if (action === "next-month") {
+        view =
+          view.month === 11
+            ? { year: view.year + 1, month: 0 }
+            : { year: view.year, month: view.month + 1 };
+        renderBody();
+      } else if (action === "pick-date" && date) {
+        pickDate(date);
+      } else if (action === "change-date") {
+        changeDate();
+      } else if (action === "party-delta" && target.dataset.delta) {
+        const delta = Number(target.dataset.delta);
+        const max = selected ? leftFor(selected) : CAPACITY;
+        const next = Math.min(Math.max(partySize + delta, 1), max);
+        if (next !== partySize) {
+          partySize = next;
+          renderBody();
+        }
+      } else if (action === "goto-reservations") {
+        $("dr-mine-section").scrollIntoView({
+          behavior: "smooth",
+          block: "start"
+        });
+      } else if (action === "book-another") {
+        bookAnother();
+      } else if (action === "cancel-reservation" && target.dataset.id) {
+        cancelReservation(target.dataset.id);
+      }
+    });
+
+    const detailsForm = maybe<HTMLFormElement>("dr-details-form");
+    detailsForm?.addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      const name = maybe<HTMLInputElement>("dr-name")?.value ?? "";
+      const email = maybe<HTMLInputElement>("dr-email")?.value ?? "";
+      const note = maybe<HTMLTextAreaElement>("dr-note")?.value ?? "";
+      draft = { leadName: name, email, note };
+      submitDetails();
+    });
+
+    const payForm = maybe<HTMLFormElement>("dr-pay-form");
+    payForm?.addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      submitPayment();
+    });
+
+    const holder = maybe<HTMLInputElement>("card-holder");
+    const number = maybe<HTMLInputElement>("card-number");
+    const expiry = maybe<HTMLInputElement>("card-expiry");
+    const cvc = maybe<HTMLInputElement>("card-cvc");
+    holder?.addEventListener("input", () => {
+      card.holder = holder.value;
+    });
+    number?.addEventListener("input", () => {
+      const formatted = formatCardNumber(number.value);
+      if (number.value !== formatted) number.value = formatted;
+      card.number = formatted;
+    });
+    expiry?.addEventListener("input", () => {
+      const formatted = formatExpiry(expiry.value);
+      if (expiry.value !== formatted) expiry.value = formatted;
+      card.expiry = formatted;
+    });
+    cvc?.addEventListener("input", () => {
+      const d = digits(cvc.value).slice(0, 4);
+      if (cvc.value !== d) cvc.value = d;
+      card.cvc = d;
+    });
+  }
+
+  // --- init ------------------------------------------------------------------
+
+  function init(): void {
+    $("dr-clear-all").addEventListener("click", clearAll);
+
+    // Support deep-linking: /dinner-reservations?date=YYYY-MM-DD
+    const params = new URLSearchParams(window.location.search);
+    const dateParam = params.get("date");
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      const d = parseKey(dateParam);
+      if (!Number.isNaN(d.getTime()) && dateParam >= todayKey && leftFor(dateParam) > 0) {
+        const dd = parseKey(dateParam);
+        view = { year: dd.getFullYear(), month: dd.getMonth() };
+      }
+    }
+
+    renderAll();
+  }
+
+  init();
+</script>
+
+<style>
+  .dr-flow {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 var(--space-2);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--space-1);
+    max-width: 42rem;
+  }
+
+  .dr-flow li {
+    border: 1px solid var(--border);
+    padding: 0.6rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .dr-flow strong {
+    font-size: 0.9rem;
+  }
+
+  .dr-flow span {
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+
+  /* --- widget chrome --- */
+
+  .dr-widget {
+    max-width: 42rem;
+  }
+
+  .dr-steps {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .dr-step--active {
+    color: var(--fg);
+    font-weight: 600;
+  }
+
+  .dr-panel {
+    border: 1px solid var(--border);
+    padding: var(--space-3);
+  }
+
+  .dr-date-line {
+    margin-bottom: var(--space-1);
+  }
+
+  .dr-change-date {
+    margin: 0 0 var(--space-2);
+  }
+
+  /* --- calendar --- */
+
+  .dr-cal-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-2);
+  }
+
+  .dr-cal-month {
+    font-weight: 600;
+  }
+
+  .dr-cal-arrow {
+    font-size: 1.3rem;
+    line-height: 1;
+    padding: 0.2rem 0.6rem;
+    background: none;
+    border: 1px solid var(--border);
+    cursor: pointer;
+  }
+
+  .dr-cal-arrow:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .dr-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .dr-weekdays span {
+    text-align: center;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+
+  .dr-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+  }
+
+  .dr-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 64px;
+    padding: 0.35rem 0.25rem 0.3rem;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    cursor: pointer;
+    font: inherit;
+    color: var(--fg);
+    gap: 0.25rem;
+  }
+
+  .dr-cell:hover:not(:disabled) {
+    border-color: var(--fg);
+  }
+
+  .dr-cell:disabled {
+    cursor: default;
+    opacity: 0.4;
+  }
+
+  .dr-cell--today {
+    border-color: var(--accent);
+  }
+
+  .dr-cell--selected {
+    background: var(--fg);
+    border-color: var(--fg);
+    color: var(--bg);
+  }
+
+  .dr-cell--selected .dr-cell-left {
+    color: inherit;
+  }
+
+  .dr-cell--empty {
+    border-color: transparent;
+  }
+
+  .dr-cell-day {
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .dr-cell-left {
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  .dr-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: var(--space-2);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  .dr-legend-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border: 1px solid var(--border);
+  }
+
+  .dr-legend-dot--open {
+    background: var(--bg);
+  }
+
+  .dr-legend-dot--full {
+    opacity: 0.4;
+  }
+
+  .dr-calselect {
+    margin-top: var(--space-2);
+    font-size: 0.95rem;
+  }
+
+  .dr-calselect--idle {
+    color: var(--muted);
+    margin-bottom: 0;
+  }
+
+  /* --- fields & forms --- */
+
+  .dr-field {
+    margin-bottom: var(--space-2);
+  }
+
+  .dr-field label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+  }
+
+  .dr-field input,
+  .dr-field textarea {
+    width: 100%;
+    font: inherit;
+    padding: 0.45rem 0.55rem;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--fg);
+    border-radius: 0;
+  }
+
+  .dr-field input:focus,
+  .dr-field textarea:focus {
+    outline: 1px solid var(--fg);
+    border-color: var(--fg);
+  }
+
+  .dr-field-hint {
+    margin: 0.25rem 0 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  .dr-required {
+    color: var(--accent);
+  }
+
+  .dr-optional {
+    color: var(--muted);
+    font-weight: 400;
+    font-size: 0.85rem;
+  }
+
+  .dr-field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2);
+  }
+
+  .dr-stepper {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--border);
+  }
+
+  .dr-step-btn {
+    width: 2.4rem;
+    height: 2.4rem;
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    cursor: pointer;
+  }
+
+  .dr-step-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .dr-party-out {
+    min-width: 3rem;
+    text-align: center;
+    font-weight: 600;
+    font-size: 1rem;
+  }
+
+  .dr-error {
+    color: #b3261e;
+    font-size: 0.9rem;
+    margin: 0 0 var(--space-2);
+  }
+
+  .dr-submit-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    margin-top: var(--space-2);
+  }
+
+  .dr-subtotal {
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+
+  .dr-btn {
+    font: inherit;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--fg);
+    cursor: pointer;
+  }
+
+  .dr-btn:hover:not(:disabled) {
+    border-color: var(--fg);
+  }
+
+  .dr-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .dr-btn--primary {
+    background: var(--fg);
+    border-color: var(--fg);
+    color: var(--bg);
+  }
+
+  .dr-btn--primary:hover:not(:disabled) {
+    opacity: 0.85;
+    border-color: var(--fg);
+  }
+
+  .dr-link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: var(--muted);
+    text-decoration: underline;
+    text-underline-offset: 0.1em;
+    cursor: pointer;
+  }
+
+  .dr-link-btn:hover {
+    color: var(--fg);
+  }
+
+  /* --- payment stub --- */
+
+  .dr-demo-banner {
+    border: 1px dashed var(--accent);
+    padding: 0.6rem 0.75rem;
+    margin-bottom: var(--space-2);
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+
+  .dr-demo-banner strong {
+    color: var(--fg);
+  }
+
+  .dr-summary {
+    border: 1px solid var(--border);
+    padding: 0.6rem 0.75rem;
+    margin-bottom: var(--space-2);
+  }
+
+  .dr-summary-row {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+    font-size: 0.95rem;
+  }
+
+  .dr-summary-row--total {
+    border-top: 1px solid var(--border);
+    margin-top: 0.4rem;
+    padding-top: 0.4rem;
+    font-weight: 600;
+  }
+
+  /* --- done --- */
+
+  .dr-panel--done {
+    text-align: center;
+  }
+
+  .dr-check {
+    font-size: 2rem;
+    margin-bottom: var(--space-1);
+  }
+
+  .dr-code {
+    font-size: 0.95rem;
+    color: var(--muted);
+  }
+
+  .dr-done-list {
+    list-style: none;
+    padding: 0;
+    margin: var(--space-2) auto;
+    max-width: 24rem;
+  }
+
+  .dr-done-list li {
+    border-top: 1px solid var(--border);
+    padding: 0.45rem 0;
+  }
+
+  .dr-done-note {
+    color: var(--muted);
+    font-size: 0.9rem;
+    max-width: 34rem;
+    margin: var(--space-1) auto var(--space-2);
+  }
+
+  .dr-done-actions {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+
+  /* --- reservations list --- */
+
+  .dr-mine-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+
+  .dr-mine {
+    list-style: none;
+    padding: 0;
+    margin: var(--space-2) 0 0;
+  }
+
+  .dr-mine-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    border-top: 1px solid var(--border);
+    padding: 0.6rem 0;
+  }
+
+  .dr-mine-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .dr-mine-meta {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .dr-mine-empty {
+    color: var(--muted);
+    padding: 0.6rem 0;
+    border-top: 1px solid var(--border);
+    font-size: 0.95rem;
+  }
+
+  .dr-demo-note {
+    margin: var(--space-2) 0 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  @media (max-width: 560px) {
+    .dr-cell {
+      min-height: 52px;
+    }
+
+    .dr-field-row {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+
+    .dr-panel {
+      padding: var(--space-2);
+    }
+  }
+</style>

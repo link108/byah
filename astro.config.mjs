@@ -30,7 +30,8 @@ export default defineConfig({
     mdx(),
     sitemap({
       customPages: liveProjectSubdomains,
-      filter: (page) => !page.includes("/beernbbq")
+      filter: (page) =>
+        !page.includes("/beernbbq") && !page.includes("/dinner-reservations")
     })
   ]
 });
