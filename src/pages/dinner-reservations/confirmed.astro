@@ -1,0 +1,179 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Reservation confirmed"
+  description="Your BYAH dinner reservation is confirmed."
+  currentPath="/dinner-reservations"
+>
+  <section>
+    <span class="eyebrow">BYAH dinner nights · Park City</span>
+    <h1>Your reservation</h1>
+    <div class="cf-status" id="cf-status" role="status" aria-live="polite">
+      Checking your reservation…
+    </div>
+    <div class="cf-card" id="cf-card" hidden></div>
+  </section>
+</BaseLayout>
+
+<script>
+  type Reservation = {
+    id: string;
+    date: string;
+    code: string;
+    partySize: number;
+    leadName: string;
+    email: string;
+    note: string | null;
+    createdAt: string;
+    cancelledAt: string | null;
+  };
+
+  function esc(s: string): string {
+    return s.replace(
+      /[&<>"']/g,
+      (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+          c
+        ] ?? c
+    );
+  }
+
+  function fmtLong(key: string): string {
+    const [y, m, d] = key.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric"
+    });
+  }
+
+  function render(res: Reservation | null, error: string | null): void {
+    const status = document.getElementById("cf-status");
+    const card = document.getElementById("cf-card");
+    if (!status || !card) return;
+
+    if (error) {
+      status.textContent = error;
+      return;
+    }
+    if (!res) {
+      status.textContent = "We couldn't find that reservation.";
+      return;
+    }
+
+    status.textContent = "";
+    status.hidden = true;
+    card.hidden = false;
+
+    const cancelled = res.cancelledAt !== null;
+    card.innerHTML = `
+      <p class="cf-check">${cancelled ? "—" : "✓"}</p>
+      <h2>${cancelled ? "This reservation was cancelled" : `You're booked${res.leadName ? `, ${esc(res.leadName.split(" ")[0])}` : ""}!`}</h2>
+      <p class="cf-code">Reservation code: <strong>${esc(res.code)}</strong></p>
+      <ul class="cf-details">
+        <li><strong>${fmtLong(res.date)}</strong></li>
+        <li>${res.partySize} ${res.partySize === 1 ? "guest" : "guests"} · ${esc(res.leadName)}</li>
+        <li>Meet at 4:00 PM in Park City · back ~9:00 PM</li>
+        ${res.note ? `<li class="cf-note">Note: ${esc(res.note)}</li>` : ""}
+      </ul>
+      ${cancelled ? "" : `<p class="cf-demo">Demo checkout — no payment was processed and nothing was charged. In the real version this confirmation would be emailed to ${esc(res.email)} along with the meetup spot.</p>`}
+      <div class="cf-actions">
+        <a class="dr-link-btn" href="/dinner-reservations">View my reservations</a>
+        <a class="dr-link-btn" href="/dinner-reservations">Book another night →</a>
+      </div>
+    `;
+  }
+
+  async function init(): Promise<void> {
+    const code = new URLSearchParams(window.location.search).get("code");
+    if (!code) {
+      render(null, "Missing reservation code.");
+      return;
+    }
+    try {
+      const res = await fetch(
+        `/api/dinner-reservations?code=${encodeURIComponent(code)}`
+      );
+      if (res.status === 404) {
+        render(null, "We couldn't find that reservation code.");
+        return;
+      }
+      if (!res.ok) {
+        render(null, "Something went wrong loading your reservation.");
+        return;
+      }
+      const data = (await res.json()) as { reservation: Reservation };
+      render(data.reservation ?? null, null);
+    } catch {
+      render(null, "Something went wrong loading your reservation.");
+    }
+  }
+
+  init();
+</script>
+
+<style>
+  .cf-status {
+    color: var(--muted);
+    margin-bottom: var(--space-2);
+  }
+
+  .cf-card {
+    max-width: 34rem;
+    border: 1px solid var(--border);
+    padding: var(--space-3);
+  }
+
+  .cf-check {
+    font-size: 1.5rem;
+    line-height: 1;
+    margin: 0 0 var(--space-2);
+  }
+
+  .cf-card h2 {
+    margin: 0 0 var(--space-1);
+  }
+
+  .cf-code {
+    margin: 0 0 var(--space-2);
+  }
+
+  .cf-details {
+    list-style: none;
+    margin: 0 0 var(--space-2);
+    padding: 0;
+    display: grid;
+    gap: 0.3rem;
+    color: var(--fg);
+  }
+
+  .cf-note {
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  .cf-demo {
+    color: var(--muted);
+    font-size: 0.9em;
+    margin: 0 0 var(--space-2);
+  }
+
+  .cf-actions {
+    display: flex;
+    gap: var(--space-3);
+  }
+
+  a.dr-link-btn {
+    color: var(--fg);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+  }
+</style>

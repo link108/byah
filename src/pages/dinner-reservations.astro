@@ -44,44 +44,81 @@ const eveningFlow = [
   <section class="section-rule" id="dr-mine-section">
     <div class="dr-mine-head">
       <h2 id="dr-mine-title">My reservations</h2>
-      <button type="button" class="dr-link-btn" id="dr-clear-all">Clear all demo data</button>
     </div>
+    <p class="dr-mine-hint">Enter the email you booked with to see and cancel your reservations.</p>
+    <form id="dr-lookup-form" class="dr-lookup" novalidate>
+      <input id="dr-lookup-email" type="email" autocomplete="email" placeholder="you@example.com" aria-label="Email used to book" />
+      <button type="submit" class="dr-btn">Look up</button>
+    </form>
+    <p class="dr-mine-status" id="dr-mine-status" role="status" aria-live="polite"></p>
     <ul class="dr-mine" id="dr-mine"></ul>
   </section>
 </BaseLayout>
 
 <script>
   // ---------------------------------------------------------------------------
-  // BYAH dinner reservations — client-side demo.
+  // BYAH dinner reservations — Postgres-backed booking flow.
   //
-  // Reservations are stored in localStorage under one key per browser. There is
-  // no server or database behind this yet, so capacity is enforced per browser
-  // only. The payment step is a clearly-labeled stub: nothing is charged and no
-  // card data leaves this page. Swapping this module for a small API (the same
-  // pattern as /beernbbq's Postgres routes) is the intended upgrade path.
+  // Availability and bookings live in the byah Postgres database behind
+  // /api/dinner-reservations (the same Prisma wiring as the /beernbbq pages),
+  // so seat counts are shared across every visitor, not per browser. The
+  // checkout step is a clearly-labeled demo stub: confirming creates the
+  // booking server-side and lands you on a confirmation page — no card is
+  // collected and nothing is charged. Identity for "my reservations" is the
+  // email you booked with (same friend-group trust model as beernbbq's rater
+  // name).
   // ---------------------------------------------------------------------------
 
   const CAPACITY = 24;
   // TODO(cameron): set the real per-guest price before launch.
   const PRICE_PER_GUEST = 175;
-  const STORAGE_KEY = "byah.dinner-reservations.v1";
-
-  type Reservation = {
-    id: string;
-    date: string; // local yyyy-mm-dd
-    partySize: number;
-    leadName: string;
-    email: string;
-    note: string;
-    createdAt: number;
-  };
-
-  type Store = Record<string, Reservation[]>;
+  const EMAIL_KEY = "byah.dinner.email";
 
   const money = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD"
   });
+
+  type Reservation = {
+    id: string;
+    date: string; // local yyyy-mm-dd
+    code: string;
+    partySize: number;
+    leadName: string;
+    email: string;
+    note: string | null;
+    createdAt: string;
+    cancelledAt: string | null;
+  };
+
+  type Availability = {
+    month: string;
+    capacity: number;
+    days: Record<string, number>; // date -> seats taken
+  };
+
+  class ApiError extends Error {
+    status: number;
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
+    }
+  }
+
+  async function api<T>(path: string, init?: RequestInit): Promise<T> {
+    const res = await fetch(path, init);
+    if (!res.ok) {
+      let message = `Request failed (${res.status})`;
+      try {
+        const body = (await res.json()) as { error?: string };
+        if (body?.error) message = body.error;
+      } catch {
+        // keep the generic message
+      }
+      throw new ApiError(res.status, message);
+    }
+    return (await res.json()) as T;
+  }
 
   function $<T extends HTMLElement = HTMLElement>(id: string): T {
     const el = document.getElementById(id);
@@ -89,28 +126,19 @@ const eveningFlow = [
     return el as T;
   }
 
-  // Optional lookup for elements that only exist on some wizard steps.
   function maybe<T extends HTMLElement>(id: string): T | null {
     return document.getElementById(id) as T | null;
   }
 
-  // --- persistence -----------------------------------------------------------
-
-  function loadStore(): Store {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return {};
-      const parsed: unknown = JSON.parse(raw);
-      return parsed && typeof parsed === "object" ? (parsed as Store) : {};
-    } catch {
-      return {};
-    }
-  }
-
-  let store: Store = loadStore();
-
-  function saveStore(): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+  // Escape user content rendered into HTML strings.
+  function esc(s: string): string {
+    return s.replace(
+      /[&<>"']/g,
+      (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+          c
+        ] ?? c
+    );
   }
 
   // --- date helpers (all local-time, no UTC round-trips) ---------------------
@@ -130,6 +158,10 @@ const eveningFlow = [
 
   const now = new Date();
   const todayKey = dateKey(now);
+
+  function monthKeyOf(year: number, month: number): string {
+    return `${year}-${pad(month + 1)}`;
+  }
 
   function monthLabel(year: number, month: number): string {
     return new Date(year, month, 1).toLocaleDateString("en-US", {
@@ -155,45 +187,58 @@ const eveningFlow = [
     });
   }
 
-  // --- capacity --------------------------------------------------------------
+  // --- availability (the server is the source of truth) ----------------------
 
-  function reservationsFor(date: string): Reservation[] {
-    return store[date] ?? [];
+  const availability = new Map<string, Record<string, number>>();
+  const loading = new Set<string>();
+
+  function takenFor(date: string): number | null {
+    const days = availability.get(date.slice(0, 7));
+    if (!days) return null;
+    return days[date] ?? 0;
   }
 
-  function totalFor(date: string): number {
-    return reservationsFor(date).reduce((sum, r) => sum + r.partySize, 0);
+  function leftFor(date: string): number | null {
+    const taken = takenFor(date);
+    return taken === null ? null : CAPACITY - taken;
   }
 
-  function leftFor(date: string): number {
-    return CAPACITY - totalFor(date);
+  async function loadMonth(year: number, month: number): Promise<void> {
+    const key = monthKeyOf(year, month);
+    if (loading.has(key) || availability.has(key)) return;
+    loading.add(key);
+    try {
+      const data = await api<Availability>(
+        `/api/dinner-reservations/availability?month=${encodeURIComponent(key)}`
+      );
+      availability.set(data.month, data.days ?? {});
+      // The month may have loaded while the guest was mid-flow — only repaint
+      // if they're still looking at the calendar for it.
+      if (step === "calendar" && view.year === year && view.month === month) {
+        renderBody();
+      }
+    } catch (err) {
+      console.error("failed to load availability", err);
+    } finally {
+      loading.delete(key);
+    }
   }
 
-  // --- escape user content rendered into HTML strings ------------------------
-
-  function esc(s: string): string {
-    return s.replace(
-      /[&<>"']/g,
-      (c) =>
-        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-          c
-        ] ?? c
-    );
+  function refreshMonth(year: number, month: number): void {
+    availability.delete(monthKeyOf(year, month));
+    void loadMonth(year, month);
   }
 
   // --- wizard state ----------------------------------------------------------
 
-  type Step = "calendar" | "details" | "payment" | "done";
+  type Step = "calendar" | "details" | "payment";
 
   let step: Step = "calendar";
   let selected: string | null = null;
   let partySize = 2;
   let draft = { leadName: "", email: "", note: "" };
-  let card = { holder: "", number: "", expiry: "", cvc: "" };
   let error = "";
-  let lastReservation: Reservation | null = null;
-
-  // Calendar view: first day of the displayed month.
+  let busy = false;
   let view = { year: now.getFullYear(), month: now.getMonth() };
 
   // --- tiny HTML helpers -----------------------------------------------------
@@ -216,6 +261,10 @@ const eveningFlow = [
     return `<p class="dr-change-date"><button type="button" class="dr-link-btn" data-action="change-date">← Change date</button></p>`;
   }
 
+  function errorHtml(): string {
+    return error ? `<p class="dr-error" role="alert">${esc(error)}</p>` : "";
+  }
+
   // --- calendar step ---------------------------------------------------------
 
   function renderCalendarPanel(): string {
@@ -224,6 +273,7 @@ const eveningFlow = [
     const daysInMonth = new Date(view.year, view.month + 1, 0).getDate();
     const prevDisabled =
       view.year === now.getFullYear() && view.month === now.getMonth();
+    const monthReady = availability.has(monthKeyOf(view.year, view.month));
 
     let cells = "";
     for (let i = 0; i < offset; i++) {
@@ -232,13 +282,14 @@ const eveningFlow = [
     for (let day = 1; day <= daysInMonth; day++) {
       const key = dateKey(new Date(view.year, view.month, day));
       const isPast = key < todayKey;
-      const left = leftFor(key);
-      const full = left <= 0;
+      const left = monthReady ? leftFor(key) : null;
+      const full = left !== null && left <= 0;
       const isToday = key === todayKey;
       const isSelected = key === selected;
 
       let label: string;
       if (isPast) label = "past";
+      else if (!monthReady) label = "…";
       else if (full) label = "full";
       else label = `${left} ${left === 1 ? "seat" : "seats"} left`;
 
@@ -248,7 +299,7 @@ const eveningFlow = [
         data-action="pick-date"
         data-date="${key}"
         aria-label="${fmtShort(key)} — ${label}"
-        ${isPast || full ? "disabled" : ""}
+        ${isPast || !monthReady || full ? "disabled" : ""}
       >
         <span class="dr-cell-day">${day}</span>
         <span class="dr-cell-left">${isPast ? "" : label}</span>
@@ -275,6 +326,7 @@ const eveningFlow = [
         <div class="dr-grid">${cells}</div>
       </div>
       <div class="dr-legend"><span class="dr-legend-dot dr-legend-dot--open"></span> open &nbsp;·&nbsp; <span class="dr-legend-dot dr-legend-dot--full"></span> full</div>
+      ${errorHtml()}
       ${hint}
     `;
   }
@@ -286,12 +338,8 @@ const eveningFlow = [
       step = "calendar";
       return renderCalendarPanel();
     }
-    const left = leftFor(selected);
+    const left = leftFor(selected) ?? CAPACITY;
     const subtotal = partySize * PRICE_PER_GUEST;
-
-    const errorHtml = error
-      ? `<p class="dr-error" role="alert">${esc(error)}</p>`
-      : "";
 
     return `
       ${stepsRail()}
@@ -317,13 +365,13 @@ const eveningFlow = [
           <div class="dr-field">
             <label for="dr-email">Email <span class="dr-required">*</span></label>
             <input id="dr-email" type="email" autocomplete="email" value="${esc(draft.email)}" placeholder="you@example.com" />
-            <p class="dr-field-hint">Where we'd send your reservation details.</p>
+            <p class="dr-field-hint">We'll use this to look up and manage your reservation.</p>
           </div>
           <div class="dr-field">
             <label for="dr-note">Anything we should know? <span class="dr-optional">optional</span></label>
             <textarea id="dr-note" rows="3" placeholder="Allergies, questions, a birthday…">${esc(draft.note)}</textarea>
           </div>
-          ${errorHtml}
+          ${errorHtml()}
           <div class="dr-submit-row">
             <span class="dr-subtotal">${partySize} ${partySize === 1 ? "guest" : "guests"} · ${money.format(subtotal)}</span>
             <button type="submit" class="dr-btn dr-btn--primary">Continue to checkout →</button>
@@ -333,19 +381,15 @@ const eveningFlow = [
     `;
   }
 
-  // --- payment step (stub) ---------------------------------------------------
+  // --- checkout step (demo stub) ---------------------------------------------
 
   function renderPaymentPanel(): string {
     if (!selected) {
       step = "calendar";
       return renderCalendarPanel();
     }
-    const left = leftFor(selected);
+    const left = leftFor(selected) ?? CAPACITY;
     const total = partySize * PRICE_PER_GUEST;
-
-    const errorHtml = error
-      ? `<p class="dr-error" role="alert">${esc(error)}</p>`
-      : "";
 
     return `
       ${stepsRail()}
@@ -354,8 +398,9 @@ const eveningFlow = [
         ${backLink()}
 
         <div class="dr-demo-banner" role="note">
-          <strong>Demo checkout.</strong> This payment form is a stub — no card is
-          charged and nothing is sent anywhere.
+          <strong>Demo checkout.</strong> No card is collected and nothing is
+          charged — confirming below books your seats and takes you to a
+          confirmation page.
         </div>
 
         <div class="dr-summary">
@@ -363,106 +408,78 @@ const eveningFlow = [
           <div class="dr-summary-row dr-summary-row--total"><span>Total</span><span>${money.format(total)}</span></div>
         </div>
 
-        <form id="dr-pay-form" novalidate>
-          <div class="dr-field">
-            <label for="card-holder">Name on card</label>
-            <input id="card-holder" type="text" autocomplete="cc-name" value="${esc(card.holder)}" placeholder="Full name" />
-          </div>
-          <div class="dr-field">
-            <label for="card-number">Card number</label>
-            <input id="card-number" type="text" inputmode="numeric" autocomplete="cc-number" value="${esc(card.number)}" placeholder="0000 0000 0000 0000" />
-          </div>
-          <div class="dr-field-row">
-            <div class="dr-field">
-              <label for="card-expiry">Expiry</label>
-              <input id="card-expiry" type="text" inputmode="numeric" autocomplete="cc-exp" value="${esc(card.expiry)}" placeholder="MM/YY" />
-            </div>
-            <div class="dr-field">
-              <label for="card-cvc">CVC</label>
-              <input id="card-cvc" type="text" inputmode="numeric" autocomplete="cc-csc" value="${esc(card.cvc)}" placeholder="123" />
-            </div>
-          </div>
-          ${errorHtml}
-          <div class="dr-submit-row">
-            <span class="dr-subtotal">Due today: ${money.format(total)}</span>
-            <button type="submit" class="dr-btn dr-btn--primary" id="dr-pay-btn">Reserve for ${money.format(total)}</button>
-          </div>
-        </form>
-      </div>
-    `;
-  }
-
-  // --- confirmation step -----------------------------------------------------
-
-  function renderDonePanel(): string {
-    const r = lastReservation;
-    if (!r) {
-      step = "calendar";
-      return renderCalendarPanel();
-    }
-    return `
-      ${stepsRail()}
-      <div class="dr-panel dr-panel--done">
-        <p class="dr-check">✓</p>
-        <h2>You're booked${r.leadName ? `, ${esc(r.leadName.split(" ")[0])}` : ""}!</h2>
-        <p class="dr-code">Reservation code: <strong>${esc(r.id)}</strong></p>
-        <ul class="dr-done-list">
-          <li><strong>${fmtLong(r.date)}</strong></li>
-          <li>${r.partySize} ${r.partySize === 1 ? "guest" : "guests"}</li>
-          <li>Meet at 4:00 PM in Park City · back ~9:00 PM</li>
-        </ul>
-        <p class="dr-done-note">In the real version this confirmation would be emailed to ${esc(r.email)} along with the meetup spot. This demo stores it in your browser only.</p>
-        <div class="dr-done-actions">
-          <button type="button" class="dr-btn" data-action="goto-reservations">View my reservations</button>
-          <button type="button" class="dr-btn dr-btn--primary" data-action="book-another">Book another night →</button>
+        ${errorHtml()}
+        <div class="dr-submit-row">
+          <span class="dr-subtotal">Due today: ${money.format(total)} · demo, no charge</span>
+          <button type="button" class="dr-btn dr-btn--primary" id="dr-pay-btn" data-action="pay">Reserve for ${money.format(total)}</button>
         </div>
       </div>
     `;
   }
 
-  // --- reservations list -----------------------------------------------------
+  // --- "my reservations" list (email lookup) ---------------------------------
 
-  function allReservations(): Reservation[] {
-    return Object.values(store)
-      .flat()
-      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  function mineEmail(): string {
+    return (maybe<HTMLInputElement>("dr-lookup-email")?.value ?? "")
+      .trim()
+      .toLowerCase();
   }
 
   function renderMine(): void {
-    const list = allReservations();
+    const email = mineEmail();
     const title = $("dr-mine-title");
-    title.textContent = list.length
-      ? `My reservations (${list.length})`
-      : "My reservations";
-
+    const status = $("dr-mine-status");
     const ul = $("dr-mine");
-    if (!list.length) {
-      ul.innerHTML = `<li class="dr-mine-empty">No reservations yet — pick an open night above.</li>`;
+    if (!email) {
+      title.textContent = "My reservations";
+      status.textContent = "";
+      ul.innerHTML = `<li class="dr-mine-empty">Enter your email above to see your reservations.</li>`;
       return;
     }
-    ul.innerHTML = list
-      .map(
-        (r) => `
+    status.textContent = "Looking up…";
+    api<{ reservations: Reservation[] }>(
+      `/api/dinner-reservations?email=${encodeURIComponent(email)}`
+    )
+      .then((data) => {
+        const list = data.reservations ?? [];
+        title.textContent = list.length
+          ? `My reservations (${list.length})`
+          : "My reservations";
+        status.textContent = list.length
+          ? ""
+          : `No reservations found for ${email}.`;
+        if (!list.length) {
+          ul.innerHTML = `<li class="dr-mine-empty">No reservations for ${esc(email)} yet — pick an open night above.</li>`;
+          return;
+        }
+        ul.innerHTML = list
+          .map(
+            (r) => `
         <li class="dr-mine-item">
           <div class="dr-mine-main">
             <strong>${fmtLong(r.date)}</strong>
-            <span class="dr-mine-meta">${esc(r.id)} · ${r.partySize} ${r.partySize === 1 ? "guest" : "guests"} · ${esc(r.leadName || "—")}</span>
+            <span class="dr-mine-meta">${esc(r.code)} · ${r.partySize} ${r.partySize === 1 ? "guest" : "guests"} · ${esc(r.leadName)}</span>
           </div>
-          <button type="button" class="dr-link-btn" data-action="cancel-reservation" data-id="${esc(r.id)}">Cancel</button>
+          <button type="button" class="dr-link-btn" data-action="cancel-reservation" data-code="${esc(r.code)}">Cancel</button>
         </li>`
-      )
-      .join("");
+          )
+          .join("");
+      })
+      .catch(() => {
+        status.textContent = "Couldn't load reservations — try again in a moment.";
+      });
   }
 
   // --- rendering -------------------------------------------------------------
 
   function renderBody(): void {
-    // A cancellation (or another booking) can shrink a night's remaining seats
-    // mid-flow — clamp the party size, or bounce back to the calendar when the
-    // night has filled up entirely.
     if ((step === "details" || step === "payment") && selected) {
       const left = leftFor(selected);
-      if (left <= 0) {
+      if (left === null) {
+        refreshMonth(view.year, view.month);
+      } else if (left <= 0) {
+        // The night filled up while the guest sat on a later step.
+        error = "That night just filled up — please pick another.";
         selected = null;
         step = "calendar";
       } else if (partySize > left) {
@@ -473,91 +490,29 @@ const eveningFlow = [
     const body = $("dr-body");
     if (step === "calendar") body.innerHTML = renderCalendarPanel();
     else if (step === "details") body.innerHTML = renderDetailsPanel();
-    else if (step === "payment") body.innerHTML = renderPaymentPanel();
-    else body.innerHTML = renderDonePanel();
+    else body.innerHTML = renderPaymentPanel();
 
     const note = $("dr-demo-note");
     note.textContent =
       step === "payment"
-        ? "Demo prototype: no payment is processed, and bookings live only in this browser (localStorage)."
+        ? "Demo checkout: your seats are booked only when you confirm — no payment is processed."
         : "";
 
     bindPanel();
   }
 
-  function renderAll(): void {
-    renderBody();
-    renderMine();
-  }
-
-  // --- input formatting helpers ----------------------------------------------
-
-  function digits(s: string): string {
-    return s.replace(/\D/g, "");
-  }
-
-  function formatCardNumber(s: string): string {
-    const d = digits(s).slice(0, 16);
-    return d.replace(/(\d{4})(?=\d)/g, "$1 ");
-  }
-
-  function formatExpiry(s: string): string {
-    const d = digits(s).slice(0, 4);
-    if (d.length <= 2) return d;
-    return `${d.slice(0, 2)}/${d.slice(2)}`;
-  }
-
-  // --- validation ------------------------------------------------------------
-
-  function validateDetails(): string {
-    if (!draft.leadName.trim()) return "Please add the lead guest's name.";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim()))
-      return "Please add a valid email address.";
-    if (partySize < 1) return "Party size must be at least 1.";
-    if (selected && partySize > leftFor(selected))
-      return "That party is bigger than the seats left that night.";
-    return "";
-  }
-
-  function validateCard(): string {
-    if (!card.holder.trim()) return "Please add the name on the card.";
-    const num = digits(card.number);
-    if (num.length < 15 || num.length > 16)
-      return "Card number should be 15–16 digits.";
-    const exp = digits(card.expiry);
-    if (exp.length !== 4) return "Expiry should be MM/YY.";
-    const mm = Number(exp.slice(0, 2));
-    const yy = Number(exp.slice(2));
-    const nowYy = now.getFullYear() % 100;
-    if (mm < 1 || mm > 12) return "Expiry month should be 01–12.";
-    if (yy < nowYy || (yy === nowYy && mm < now.getMonth() + 1))
-      return "That card has expired.";
-    const cvc = digits(card.cvc);
-    if (cvc.length < 3 || cvc.length > 4) return "CVC should be 3–4 digits.";
-    return "";
-  }
-
-  function newCode(): string {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let code = "";
-    for (let i = 0; i < 4; i++) {
-      code += chars[Math.floor(Math.random() * chars.length)];
-    }
-    return `BYAH-${code}`;
-  }
-
   // --- actions ---------------------------------------------------------------
 
   function pickDate(key: string): void {
-    if (key < todayKey || leftFor(key) <= 0) return;
-    selected = key;
+    if (key < todayKey) return;
     const left = leftFor(key);
+    if (left === null || left <= 0) return;
+    selected = key;
     partySize = Math.min(Math.max(partySize, 1), left);
     draft = { leadName: "", email: "", note: "" };
-    card = { holder: "", number: "", expiry: "", cvc: "" };
     error = "";
     step = "details";
-    renderAll();
+    renderBody();
     $("dr-widget").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -568,114 +523,125 @@ const eveningFlow = [
     }
     error = "";
     step = "calendar";
-    renderAll();
+    renderBody();
   }
 
   function submitDetails(): void {
-    error = validateDetails();
-    if (error) {
-      renderAll();
+    const name = draft.leadName.trim();
+    const email = draft.email.trim();
+    if (!name) {
+      error = "Please add the lead guest's name.";
+      renderBody();
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      error = "Please add a valid email address.";
+      renderBody();
+      return;
+    }
+    if (!selected || partySize < 1) {
+      error = "Pick a date and party size first.";
+      step = "calendar";
+      renderBody();
+      return;
+    }
+    const left = leftFor(selected);
+    if (left !== null && partySize > left) {
+      error = "That party is bigger than the seats left that night.";
+      renderBody();
       return;
     }
     error = "";
     step = "payment";
-    renderAll();
+    renderBody();
     $("dr-widget").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function submitPayment(): void {
-    // Capacity re-check right before booking — seats may have been freed or
-    // taken while the guest sat on the checkout step.
-    if (!selected || totalFor(selected) + partySize > CAPACITY) {
-      error = "Sorry — that night's remaining seats changed. Pick again.";
-      step = "details";
-      renderAll();
+  async function submitPayment(): Promise<void> {
+    if (busy || !selected) return;
+    const left = leftFor(selected);
+    if (left === null || left <= 0) {
+      error = "That night just filled up — please pick another.";
+      selected = null;
+      step = "calendar";
+      renderBody();
       return;
     }
-    error = validateCard();
-    if (error) {
-      renderAll();
-      return;
+    busy = true;
+    const btn = maybe<HTMLButtonElement>("dr-pay-btn");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Reserving…";
     }
-    const btn = $<HTMLButtonElement>("dr-pay-btn");
-    btn.disabled = true;
-    btn.textContent = "Reserving…";
-
-    // Fake processing delay — no network call happens in the demo.
-    window.setTimeout(() => {
-      if (!selected) return;
-      const res: Reservation = {
-        id: newCode(),
-        date: selected,
-        partySize,
-        leadName: draft.leadName.trim(),
-        email: draft.email.trim(),
-        note: draft.note.trim(),
-        createdAt: Date.now()
-      };
-      const list = store[selected] ?? [];
-      store[selected] = [...list, res];
-      saveStore();
-      lastReservation = res;
-      step = "done";
-      renderAll();
-      $("dr-widget").scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 900);
+    try {
+      const data = await api<{ reservation: Reservation }>(
+        "/api/dinner-reservations",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date: selected,
+            partySize,
+            leadName: draft.leadName.trim(),
+            email: draft.email.trim(),
+            note: draft.note.trim()
+          })
+        }
+      );
+      if (!data?.reservation?.code) throw new Error("no reservation returned");
+      // Drop the cached month so the counts are fresh when they come back.
+      availability.delete(selected.slice(0, 7));
+      window.location.assign(
+        `/dinner-reservations/confirmed?code=${encodeURIComponent(data.reservation.code)}`
+      );
+    } catch (err) {
+      busy = false;
+      const apiErr = err instanceof ApiError ? err : null;
+      const msg = apiErr?.message ?? "Something went wrong — please try again.";
+      if (apiErr && apiErr.status === 409) {
+        error = `${msg} Pick another night.`;
+        selected = null;
+        step = "calendar";
+        refreshMonth(view.year, view.month);
+      } else if (apiErr && apiErr.status === 400) {
+        error = msg;
+        step = "details";
+      } else {
+        error = msg;
+      }
+      renderBody();
+    }
   }
 
-  function cancelReservation(id: string): void {
-    const all = allReservations();
-    const target = all.find((r) => r.id === id);
-    if (!target) return;
+  async function cancelReservation(code: string): Promise<void> {
+    const res = await api<{ reservation: Reservation }>(
+      `/api/dinner-reservations?code=${encodeURIComponent(code)}`
+    ).catch(() => null);
+    const r = res?.reservation;
     if (
+      !r ||
       !window.confirm(
-        `Cancel the ${fmtShort(target.date)} reservation for ${target.partySize} ${
-          target.partySize === 1 ? "guest" : "guests"
+        `Cancel the ${fmtShort(r.date)} reservation for ${r.partySize} ${
+          r.partySize === 1 ? "guest" : "guests"
         }?`
       )
     ) {
       return;
     }
-    store[target.date] = (store[target.date] ?? []).filter((r) => r.id !== id);
-    if ((store[target.date] ?? []).length === 0) delete store[target.date];
-    saveStore();
-    if (lastReservation?.id === id) lastReservation = null;
-    if (step === "done") {
-      step = "calendar";
-      if (selected) {
-        const d = parseKey(selected);
-        view = { year: d.getFullYear(), month: d.getMonth() };
-      }
+    try {
+      await api<{ ok: boolean }>(
+        `/api/dinner-reservations/${encodeURIComponent(code)}/cancel`,
+        { method: "POST" }
+      );
+      // Seats are freed — refresh whatever availability is on screen.
+      if (selected) availability.delete(selected.slice(0, 7));
+      availability.delete(monthKeyOf(view.year, view.month));
+      renderMine();
+      renderBody();
+      void loadMonth(view.year, view.month);
+    } catch {
+      $("dr-mine-status").textContent = "Couldn't cancel — try again in a moment.";
     }
-    renderAll();
-  }
-
-  function clearAll(): void {
-    if (
-      !window.confirm(
-        "Clear all demo reservations stored in this browser? This only affects this device."
-      )
-    ) {
-      return;
-    }
-    store = {};
-    saveStore();
-    lastReservation = null;
-    step = "calendar";
-    selected = null;
-    renderAll();
-  }
-
-  function bookAnother(): void {
-    selected = null;
-    partySize = 2;
-    draft = { leadName: "", email: "", note: "" };
-    card = { holder: "", number: "", expiry: "", cvc: "" };
-    error = "";
-    view = { year: now.getFullYear(), month: now.getMonth() };
-    step = "calendar";
-    renderAll();
-    $("dr-widget").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   // --- event wiring ----------------------------------------------------------
@@ -699,33 +665,28 @@ const eveningFlow = [
             ? { year: view.year - 1, month: 11 }
             : { year: view.year, month: view.month - 1 };
         renderBody();
+        void loadMonth(view.year, view.month);
       } else if (action === "next-month") {
         view =
           view.month === 11
             ? { year: view.year + 1, month: 0 }
             : { year: view.year, month: view.month + 1 };
         renderBody();
+        void loadMonth(view.year, view.month);
       } else if (action === "pick-date" && date) {
         pickDate(date);
       } else if (action === "change-date") {
         changeDate();
       } else if (action === "party-delta" && target.dataset.delta) {
         const delta = Number(target.dataset.delta);
-        const max = selected ? leftFor(selected) : CAPACITY;
+        const max = selected ? (leftFor(selected) ?? CAPACITY) : CAPACITY;
         const next = Math.min(Math.max(partySize + delta, 1), max);
         if (next !== partySize) {
           partySize = next;
           renderBody();
         }
-      } else if (action === "goto-reservations") {
-        $("dr-mine-section").scrollIntoView({
-          behavior: "smooth",
-          block: "start"
-        });
-      } else if (action === "book-another") {
-        bookAnother();
-      } else if (action === "cancel-reservation" && target.dataset.id) {
-        cancelReservation(target.dataset.id);
+      } else if (action === "pay") {
+        void submitPayment();
       }
     });
 
@@ -738,54 +699,48 @@ const eveningFlow = [
       draft = { leadName: name, email, note };
       submitDetails();
     });
-
-    const payForm = maybe<HTMLFormElement>("dr-pay-form");
-    payForm?.addEventListener("submit", (ev) => {
-      ev.preventDefault();
-      submitPayment();
-    });
-
-    const holder = maybe<HTMLInputElement>("card-holder");
-    const number = maybe<HTMLInputElement>("card-number");
-    const expiry = maybe<HTMLInputElement>("card-expiry");
-    const cvc = maybe<HTMLInputElement>("card-cvc");
-    holder?.addEventListener("input", () => {
-      card.holder = holder.value;
-    });
-    number?.addEventListener("input", () => {
-      const formatted = formatCardNumber(number.value);
-      if (number.value !== formatted) number.value = formatted;
-      card.number = formatted;
-    });
-    expiry?.addEventListener("input", () => {
-      const formatted = formatExpiry(expiry.value);
-      if (expiry.value !== formatted) expiry.value = formatted;
-      card.expiry = formatted;
-    });
-    cvc?.addEventListener("input", () => {
-      const d = digits(cvc.value).slice(0, 4);
-      if (cvc.value !== d) cvc.value = d;
-      card.cvc = d;
-    });
   }
 
-  // --- init ------------------------------------------------------------------
+  function bindMine(): void {
+    $("dr-lookup-form").addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      localStorage.setItem(EMAIL_KEY, mineEmail());
+      renderMine();
+    });
+
+    $("dr-mine").addEventListener("click", (ev) => {
+      const target = (ev.target as HTMLElement).closest<HTMLElement>(
+        "[data-action]"
+      );
+      if (!target) return;
+      if (target.dataset.action === "cancel-reservation" && target.dataset.code) {
+        void cancelReservation(target.dataset.code);
+      }
+    });
+
+    const stored = localStorage.getItem(EMAIL_KEY);
+    const input = maybe<HTMLInputElement>("dr-lookup-email");
+    if (stored && input) {
+      input.value = stored;
+      renderMine();
+    }
+  }
 
   function init(): void {
-    $("dr-clear-all").addEventListener("click", clearAll);
+    bindMine();
 
-    // Support deep-linking: /dinner-reservations?date=YYYY-MM-DD
+    // Deep-linking: /dinner-reservations?date=YYYY-MM-DD opens that month.
     const params = new URLSearchParams(window.location.search);
     const dateParam = params.get("date");
     if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
       const d = parseKey(dateParam);
-      if (!Number.isNaN(d.getTime()) && dateParam >= todayKey && leftFor(dateParam) > 0) {
-        const dd = parseKey(dateParam);
-        view = { year: dd.getFullYear(), month: dd.getMonth() };
+      if (!Number.isNaN(d.getTime()) && dateParam >= todayKey) {
+        view = { year: d.getFullYear(), month: d.getMonth() };
       }
     }
 
-    renderAll();
+    renderBody();
+    void loadMonth(view.year, view.month);
   }
 
   init();
@@ -1266,5 +1221,32 @@ const eveningFlow = [
     .dr-panel {
       padding: var(--space-2);
     }
+  }
+
+
+  /* --- email lookup ("my reservations", DB-backed version) --- */
+  .dr-mine-hint {
+    color: var(--muted);
+    margin: 0 0 var(--space-2);
+  }
+  .dr-lookup {
+    display: flex;
+    gap: var(--space-2);
+    max-width: 30rem;
+  }
+  .dr-lookup input {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    padding: 0.45rem 0.55rem;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--fg);
+    border-radius: 0;
+  }
+  .dr-mine-status {
+    min-height: 1.4em;
+    color: var(--muted);
+    margin: var(--space-2) 0 0;
   }
 </style>

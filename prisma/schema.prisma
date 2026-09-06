@@ -71,3 +71,25 @@ model FoodRating {
 
   @@unique([foodItemId, raterName])
 }
+
+// One row per dinner-reservation booking. Capacity (24 seats/date) can't be a
+// DB constraint - it's the sum of partySize across non-cancelled rows for a
+// date - so it's enforced in the API handlers (src/lib/dinner.ts) inside the
+// same transaction as the insert, like the beer/food score bounds in the
+// beernbbq handlers. date is a plain local calendar day (YYYY-MM-DD string,
+// no UTC round-trips). email is the lookup identity for "my reservations" -
+// same spoofable trust model as raterName elsewhere in this repo.
+model DinnerReservation {
+  id          String    @id @default(cuid())
+  date        String
+  code        String    @unique
+  partySize   Int
+  leadName    String
+  email       String
+  note        String?
+  createdAt   DateTime  @default(now())
+  cancelledAt DateTime?
+
+  @@index([date])
+  @@index([email])
+}
