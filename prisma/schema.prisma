@@ -71,3 +71,37 @@ model FoodRating {
 
   @@unique([foodItemId, raterName])
 }
+
+// date is a local yyyy-mm-dd string (Park City time), not a DateTime - matches
+// the page's own "all local-time, no UTC round-trips" convention. One row per
+// night that has ever had a booking; bookedSeats is only ever changed via the
+// guarded UPDATE in src/lib/dinner-reservations-store.ts so concurrent
+// bookings can never oversell a night, including the very first booking on a
+// date that doesn't have a row yet.
+model DinnerNight {
+  date         String              @id
+  capacity     Int                 @default(24)
+  bookedSeats  Int                 @default(0)
+  createdAt    DateTime            @default(now())
+  reservations DinnerReservation[]
+}
+
+// No login for guests - code + email is the whole trust model, same
+// spoofable-by-design tradeoff as rater.ts. code is the confirmation a guest
+// is shown/keeps; email is required on cancel so a leaked/guessed id alone
+// can't cancel someone else's night.
+model DinnerReservation {
+  id          String      @id @default(cuid())
+  code        String      @unique
+  date        String
+  night       DinnerNight @relation(fields: [date], references: [date])
+  partySize   Int
+  leadName    String
+  email       String
+  note        String      @default("")
+  cancelledAt DateTime?
+  createdAt   DateTime    @default(now())
+
+  @@index([email])
+  @@index([date])
+}
