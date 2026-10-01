@@ -12,7 +12,7 @@ can do. Most of this page is about how that's enforced.
 ## The machines
 
 - **hetzner** is a 4 GB Hetzner Cloud VPS. It runs the production k3s cluster: the
-  nine public apps, the Woodpecker server, the Cloudflare tunnel, observability, and
+  nine public apps, the Woodpecker server, the Cloudflare tunnel, a metrics agent, and
   Postgres and Redis on the host itself.
 - **nuc-a** and **nuc-b** are Intel NUCs, two of the three homelab nodes.
 - **homelab-mac** is a 2017 MacBook Pro (16 GB) running Ubuntu Server. It's the third
@@ -84,9 +84,10 @@ the agent breaks something, I lose some CI time and Plane is down for a while.
 
 ## Network
 
-Both cluster APIs, the Woodpecker UI, and Grafana are only reachable from the tailnet.
-The Cloudflare tunnel exposes the public apps and `ci.byah.org`, and nginx in front of
-Woodpecker only passes `/hook` and `/authorize`. Everything else on that hostname 404s.
+Both cluster APIs, Grafana, and Plane are only reachable from the tailnet.
+The Cloudflare tunnel exposes the public apps and `ci.byah.org`. Cloudflare Access sits
+in front of `ci.byah.org`: GitHub can reach `/hook` and `/authorize`, and everything
+else redirects to a login.
 
 `grafana.byah.org` and `plane.byah.org` have no public DNS records. Tailscale Split DNS
 sends those lookups to dnsmasq running as a systemd service on `nuc-b`, which answers
