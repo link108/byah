@@ -8,73 +8,79 @@ Everything public on this site runs on a single Hetzner VPS with 3 vCPUs and 4 G
 RAM. Everything else (CI builds, metrics, internal tools) runs on three machines in my
 house. They're two separate k3s clusters, connected over Tailscale.
 
-```text
-                          internet
-                             |
-                      Cloudflare edge
-              (Access login on ci.byah.org,
-               except /hook and /authorize)
-                             |
-                      Cloudflare Tunnel
-                             |
-+----------------------------|------------------------------+
-| hetzner: 1 VPS, 3 vCPU / 4 GB                             |
-|                            v                              |
-|   cloudflared x2: each hostname goes straight to its      |
-|                   app's Service, no ingress controller    |
-|                            |                              |
-|   byah  deckforge  landlordlog  bodega-bartender          |
-|   slopyard  game-theory  reliquary-works  games           |
-|   meandering-megan  woodpecker-server                     |
-|                            |                              |
-|   postgres.backing-services / redis.backing-services      |
-|   (Service + EndpointSlice pointing at 10.42.0.1)         |
-|                            |                              |
-| ===========================|============ VPS host ======= |
-|                            v                              |
-|   Postgres + Redis, plain systemd services                |
-|                                                           |
-|   woodpecker agent (deploys only)       vmagent           |
-+-----------------------------------------|-----------------+
-                                          | remote write
-                  Tailscale               | over the tailnet
-+-----------------------------------------|-----------------+
-| homelab: nuc-a, nuc-b, homelab-mac      v                 |
-|                                                           |
-|   VictoriaMetrics, vmalert, Alertmanager, Grafana         |
-|   Plane, Langfuse                                         |
-|   woodpecker agent + BuildKit (every CI build)            |
-|   bodega-bartender crawler worker                         |
-|   Postgres + Redis StatefulSets (homelab-mac only)        |
-|                                                           |
-|   Traefik --> grafana.byah.org, plane.byah.org            |
-|               tailnet only, resolved by dnsmasq on nuc-b  |
-+-----------------------------------------------------------+
+Here's how requests and data move inside the production cluster:
 
-   openclaw-gateway: the AI agent, with limited access to both
+```text
+       Cloudflare Tunnel
+              │
+              ▼
+       cloudflared ×2     routes each hostname straight
+              │           to the app's Service, no Ingress
+              ├──▶ byah ──────────────────────┐
+              ├──▶ deckforge ─────────────────┤
+              │       ▲ CronJob 04:00 curls   │
+              │         /api/admin/cards/sync │
+              ├──▶ game-theory ───────────────┤
+              │    CronJob 12:00, same image ─┤
+              ├──▶ bodega-bartender ──────────┤
+              ├──▶ landlordlog ───────────────┤
+              ├──▶ reliquary-works ───────────┤
+              ├──▶ slopyard ──────────────────┼───────────┐
+              ├──▶ games, meandering-megan    │           │
+              └──▶ woodpecker-server          │           │
+                                              ▼           ▼
+                                     postgres Svc     redis Svc
+                                     no selector; EndpointSlice → 10.42.0.1
+                                              │           │
+ ═════════════════════ VPS host ══════════════╪═══════════╪════
+                                              ▼           ▼
+                                      Postgres :5432 Redis :6379
+                                      systemd, one database + role per app
 ```
 
-A few details that don't fit in the boxes:
+A few things in there that aren't obvious:
 
-- **There's no ingress controller on hetzner.** The tunnel config maps each hostname
-  directly to a ClusterIP Service. It's also where game-theory's `/metrics` gets
-  blocked from the public hostname, while vmagent can still scrape it inside the
-  cluster.
-- **CI is public, but only barely.** GitHub has to be able to reach Woodpecker for
-  webhooks and the OAuth callback, so Cloudflare Access lets `/hook` and `/authorize`
-  through and sends everything else on `ci.byah.org` to a login page.
-- **The databases are the same DNS name, different things.** Every app connects to
-  `postgres.backing-services.svc.cluster.local` and
-  `redis.backing-services.svc.cluster.local`. On hetzner, those are a Service with no
-  selector and a hand-written EndpointSlice pointing at the `cni0` bridge IP, which
-  lands on Postgres and Redis running on the VPS host itself. On homelab, they're
-  ordinary StatefulSets pinned to the MacBook, the only node allowed to hold data.
-- **Metrics leave the VPS.** hetzner runs only vmagent and kube-state-metrics, which
-  remote-write over the tailnet to VictoriaMetrics on homelab. There's one metrics
-  store and one Grafana, and neither uses up the VPS's 4 GB.
-- **Some app pieces run at home.** bodega-bartender's crawler worker runs on homelab,
-  while its web app runs on hetzner. Scheduled jobs (deckforge's card sync,
-  game-theory's daily news pass) run as CronJobs on hetzner.
+- **No ingress controller.** cloudflared maps each hostname directly to a ClusterIP
+  Service. The tunnel config also blocks game-theory's `/metrics` on the public
+  hostname, while vmagent can still scrape it from inside the cluster.
+- **The databases aren't in the cluster.** `postgres.backing-services` and
+  `redis.backing-services` are Services with no selector. Hand-written
+  EndpointSlices point them at `10.42.0.1`, the node's `cni0` bridge, where Postgres
+  and Redis run as plain systemd units on the VPS. On homelab, the same two names are
+  ordinary StatefulSets, so apps don't know or care which cluster they're on.
+- **The CronJobs work two different ways.** deckforge's card sync is a `curl`
+  container that hits an admin endpoint on the running app, so the sync runs in the
+  web process. game-theory's daily news pass runs the app's own image with a
+  different command.
+- games, meandering-megan, and woodpecker-server don't touch either database. The
+  first two are static sites behind nginx, and Woodpecker keeps its data in SQLite on
+  a volume.
+
+Not shown: the outside APIs the apps call (DeepSeek, Anthropic, Stripe, Resend,
+Scryfall), and `ci.byah.org`, which sits behind a Cloudflare Access login except for
+the `/hook` and `/authorize` paths GitHub needs.
+
+Several things cross between the two clusters, all over Tailscale:
+
+```text
+  hetzner                              homelab
+  ───────                              ───────
+  vmagent ──── remote write ─────────▶ VictoriaMetrics ──▶ Grafana
+    scrapes each app's http                │
+    port, plus cloudflared                 └──▶ vmalert ──▶ Alertmanager
+
+  woodpecker-server ◀──── gRPC ─────── woodpecker agent + BuildKit
+  woodpecker agent                       (runs every build)
+    (deploys only)
+
+  Postgres on the host ◀───────────── bodega-bartender crawler worker
+```
+
+hetzner only runs a metrics agent. Storage, alerting, and the single Grafana are all
+at home, which keeps them off the VPS's 4 GB. Every CI build also runs at home, while
+the agent on hetzner only applies deploys. And bodega-bartender's crawler worker runs
+on homelab but writes to the production database, connecting to the VPS's Postgres
+directly over the tailnet.
 
 The AI agent on `openclaw-gateway`, and exactly what it's allowed to do on each
 cluster, is on [How I Actually Run This](/development).
