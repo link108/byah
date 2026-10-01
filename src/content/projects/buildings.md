@@ -1,7 +1,7 @@
 ---
 title: buildings
 status: prototype
-summary: CadQuery model that rebuilds a scanned roof-plan drawing into an editable, parametric house model, wall by wall.
+summary: CadQuery script that rebuilds a flat SketchUp roof plan as an editable 3D wall model.
 stack:
   - Python
   - CadQuery
@@ -11,22 +11,18 @@ links:
 featured: false
 ---
 
-**tl;dr**: I started this because I had an STL of a house's roof plan that was really just a flattened SketchUp export, and I wanted an actual editable model instead of a shape I couldn't touch.
+I had a `house.stl` that looked like a house model. It was really a SketchUp export
+of a 2D roof and floor plan: 1,991 triangles, mostly at three heights (0, 97, and
+194 inches), and the diagonal lines were hip, ridge, and valley guides. If the units
+are inches, the footprint is about 182 by 107 feet.
 
-The STL turned out to be a 2D roof/floor-plan drawing, not a real 3D house — about 2,000 triangles, mostly flat, with the diagonal lines just hip/ridge/valley guides. So instead of trying to parse geometry back out of that mesh, I rebuilt it by hand: explicit wall centerlines and explicit corner joints in a small Python script, using the same CadQuery environment as [reliquary-works](/projects/reliquary-works/).
+Rather than try to pull walls out of that mesh, `house_cadquery.py` defines them by
+hand. Each wall is a 6-inch-wide centerline (`Wall("W001", x1, y1, x2, y2)`), and
+corners are declared separately as joints. Running it produces STEP and STL files for
+the whole house, separate files for the wall plan, bodies, and labels, and a
+`wall_index.csv` with every wall's coordinates and length. It uses the same Conda
+CadQuery environment as [reliquary-works](/projects/reliquary-works/).
 
-```text
- house.stl (SketchUp export,
- a 2D plan, not real 3D)
-        |
-        v
- WALLS[] + JOINTS[]  (hand-edited centerlines)
-        |
-        v
- house_cadquery.py
-        |
-        v
- STEP/STL + wall_index.csv
-```
-
-Most corners snap to 90 degrees on purpose, and the README says outright not to trust this for construction or permits until the dimensions are checked against the real building. It's a rebuild, not a survey — good enough to explore the model in CAD, not good enough to hand to a contractor yet.
+Most corners are snapped to 90 degrees. The roof lines aren't modeled yet. Don't use
+it for anything structural until the dimensions have been checked against the actual
+building.

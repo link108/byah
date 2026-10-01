@@ -1,7 +1,7 @@
 ---
 title: choose-your-own-game-theory
 status: active
-summary: AI game master for playable dilemmas, with hidden state, validated turns, and a growing library of strategy scenarios.
+summary: Choose-your-own-adventure games run by an LLM, where every other character has hidden goals you only see after the game ends.
 stack:
   - FastAPI
   - React
@@ -16,40 +16,63 @@ links:
 featured: false
 ---
 
-**tl;dr**: I’m building this as a choose-your-own-adventure game master for decisions where the interesting part is not just what happens, but what everyone else wanted and knew when it happened.
+You describe a scenario (a tough conversation with a report, a negotiation, a
+diplomatic standoff, a D&D one-shot) or pick one from the library, and then play it
+turn by turn. An LLM runs the game. Each turn it writes what happens, gives you three
+to five options, and plays every other character. You can also type in something it
+didn't offer.
 
-You can start from a library scenario or describe your own idea: an engineering-management dilemma, a negotiation, a diplomatic crisis, a D&D one-shot, whatever. The app turns that setup into a role-based playthrough with a narrative, a visible state summary, and a few grounded choices at each step. You can also suggest an action the game did not offer.
-
-The boundary I care about most is between what the player sees and what the game knows. Every model response has to pass a typed schema, then the turn is stored as two separate things: a safe `player_view` for play and a `gm_state` containing hidden facts, actor intentions, and private reasoning. That is a real storage and API boundary, not a prompt asking the model to please avoid spoilers.
+The other characters have their own agendas, and you don't get to see them during
+play. Each turn the model returns one strictly validated JSON object with two parts.
+The `player_view` is the narrative and your options. The `gm_state` is everything
+else: what each character is trying to do and why, hidden facts, and progress toward
+the goal. The play endpoints only ever send `player_view`. `gm_state` comes back from
+a separate review endpoint once the game is over. If the model returns something that
+doesn't validate, it gets retried with the validation errors included.
 
 ```text
- Browser / iOS app
-        |
-        v
-     FastAPI <----- scenario snapshot + player choice
-        |
-        v
- prompt + hidden state -----> DeepSeek
-        ^                         |
-        |    invalid output       v
-        +---------------- Pydantic validation
-                                  |
-                    +-------------+-------------+
-                    |                           |
-               player_view                  gm_state
-              (shown now)            (revealed in review)
-                    |                           |
-                    +-------------+-------------+
-                                  |
-                              PostgreSQL
-                                  |
-                              next turn
+ player choice + scenario snapshot + last gm_state
+                     |
+                     v
+                  DeepSeek
+                     |
+                     v
+         schema validation --fail--> retry with errors
+                     |
+            +--------+--------+
+            |                 |
+       player_view         gm_state
+       sent now            stored, used for the next turn,
+                           shown only in the post-game review
 ```
 
-That split makes the post-game review the payoff. Once a run ends, you can go behind the curtain, inspect what the other actors were trying to do on each turn, and generate an analysis of which decisions mattered. The app can also compare completed runs to show how your approach changes over time.
+After a game you can read through the hidden state turn by turn and generate a
+coaching report on which decisions mattered and what to try next time. You can also
+compare finished runs against each other.
 
-The project has grown into more of a product than the first prototype. There is a React web app and a SwiftUI client on the same FastAPI API, guest sessions that can be claimed by an account, rotating refresh tokens, Sign in with Apple, and a committed OpenAPI contract. Playthroughs snapshot their scenario at the start, so editing a scenario later cannot quietly rewrite a game already in progress.
+A few other details:
 
-There is also a curated scenario catalog spanning game-theory classics, engineering leadership, negotiations, diplomacy, mysteries, and smaller everyday conflicts. A few “living” scenarios can follow real news: a scheduled job gathers sources across the political spectrum, drafts an update, and leaves it for human approval before anything reaches players. Existing playthroughs still keep their original snapshot.
+- A scenario is mostly free-text fields (premise, setting, tone, goal, roles with
+  private info, characters with hidden agendas, GM notes). The model interprets them,
+  so the same schema works for a D&D one-shot and a budget meeting. The builder can
+  draft all of it from one sentence.
+- Every LLM call is cached by prompt hash, so replaying is free and every generation
+  can be looked at later.
+- A playthrough snapshots its scenario when it starts. Editing the scenario later
+  doesn't change a game in progress.
+- The library comes from a list of one-line concepts. A script expands each into a
+  full scenario, and the results are committed as JSON fixtures after I review them.
+- Some scenarios start with a short intake, asking follow-up questions and then using
+  your answers in every turn. The higher-risk ones come with extra guardrails and
+  disclosures.
 
-It is actively in progress. The core loop, web experience, API, tests, observability, deployment pipeline, and first iOS client are real; subscriptions and more ambitious authoring and branching ideas are not. The tension I’m still working through is the useful one: how much freedom the model should get without giving up predictable rules, information boundaries, or the ability to explain why a run unfolded the way it did.
+Some scenarios are "living" and follow a real news story. Once a day a job pulls
+headlines from RSS feeds across the political spectrum (left, center, right,
+international), asks the model whether the story has moved, and if it has, updates
+the scenario and adds a sourced entry to its situation log. It can add new
+characters when new parties get involved. Those updates publish automatically now.
+Games already in progress keep their snapshot.
+
+It's a FastAPI backend with a React web app and a SwiftUI iOS app, and a committed
+OpenAPI spec between them. Accounts are optional: you start as a guest, and
+registering or using Sign in with Apple carries your guest history over.

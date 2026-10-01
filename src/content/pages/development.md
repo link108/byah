@@ -1,188 +1,111 @@
 ---
 title: How I Actually Run This
 eyebrow: Operations
-summary: The hosts, clusters, and agent layer behind how these projects actually get built and operated.
+summary: The machines, and what the AI agent that helps run them can and can't do on each cluster.
 ---
 
-Most of what's on this site ships through a pipeline that looks unremarkable from the
-outside — push to GitHub, CI builds an image, it lands on a VPS. What's underneath
-that is less usual: two independent k3s clusters, a self-hosted AI agent with its own
-scoped access to both, and a pile of repurposed hardware doing full-time duty as a
-build cluster. None of this needed to be this deliberate for a one-person project, but
-the agent doing a lot of the day-to-day operating work needed the same kind of
-guardrails a team of humans would insist on, so I ended up building them anyway.
+A lot of the day-to-day ops on these clusters goes through an AI agent I talk to in
+Slack. It can check pod status, read logs, look at Grafana, restart a deployment, and
+run read-only SQL against production. On the production cluster, that's about all it
+can do. Most of this page is about how that's enforced.
 
-This is the part that doesn't fit on a project card: the actual hosts, how the two
-clusters differ in what they're trusted to do, and how an agent gets to touch
-production without being able to reach `kubectl delete` on a Tuesday afternoon.
+## The machines
 
-## The Hosts
+- **hetzner** is a 4 GB Hetzner Cloud VPS. It runs the production k3s cluster: the
+  nine public apps, the Woodpecker server, the Cloudflare tunnel, observability, and
+  Postgres and Redis on the host itself.
+- **nuc-a** and **nuc-b** are Intel NUCs, two of the three homelab nodes.
+- **homelab-mac** is a 2017 MacBook Pro (16 GB) running Ubuntu Server. It's the third
+  homelab node and the only one stateful workloads are allowed to schedule on.
+- **openclaw-gateway** is an old laptop (i7-4500U, 7 GB) running headless Ubuntu. It
+  runs the OpenClaw agent and nothing else.
 
-Five machines, three different jobs:
+The homelab cluster (about 24 cores and 47 GB across the three nodes) runs the
+Woodpecker build agent, BuildKit, Plane, and Grafana/VictoriaMetrics. It used to be
+just the MacBook running k3s under Rancher Desktop. When that broke for good, I wiped
+the Mac, installed Ubuntu Server, added the two NUCs, and rebuilt it as a three-node
+cluster.
 
-- **hetzner** (`ubuntu-4gb-hil-1`) — a Hetzner Cloud VPS running the production k3s
-  cluster: all nine live apps, the Woodpecker CI server, host-level Postgres and
-  Redis, the Cloudflare tunnel, and the observability stack.
-- **openclaw-gateway** — a headless Ubuntu box (an old Core i7-4500U laptop, 7 GB of
-  RAM, repurposed rather than bought) that runs nothing app-related. Its only job is
-  the OpenClaw agent gateway — the thing that does a lot of the day-to-day operating.
-- **homelab** — a second, independent k3s cluster, and the one that's changed the
-  most: two Intel NUCs (`nuc-a`, `nuc-b`) plus the 2017 MacBook Pro (16 GB RAM) that
-  used to run this cluster alone via Rancher Desktop, wiped and rebuilt as
-  `homelab-mac` running plain Ubuntu Server after that setup died for good. Three
-  nodes, ~24 cores / ~47 GB combined. It exists to take CI load off the VPS — a
-  Woodpecker build agent, a BuildKit daemon — and now also hosts Plane and the
-  Grafana/VictoriaMetrics stack. `homelab-mac` carries the label
-  `homelab.link108/role=storage` and is the one node with actual stateful data
-  pinned to it, since it's the newest and most reliable of the three.
+Everything is on one Tailscale tailnet.
 
-None of this is cloud-scale hardware. The interesting part isn't the specs — it's how
-carefully the boundaries between them are drawn.
+## The agent
 
-```text
-                 Tailscale tailnet (private mesh)
-                              |
-        +----------------------+-----------------------+
-        |                                               |
- openclaw-gateway                                homelab (3-node k3s)
- (headless Linux laptop)                         nuc-a · nuc-b · homelab-mac
- OpenClaw agent + Slack                    Woodpecker build agent, BuildKit,
- + 7 MCP servers                           Plane, Grafana/VictoriaMetrics
-        |
-        | ssh, dispatcher-restricted commands only
-        v
- hetzner (Hetzner VPS, k3s)
- byah · deckforge · landlordlog · bodega-bartender
- slopyard · game-theory-sim · reliquary-works
- games · meandering-megan
- Woodpecker server · host Postgres/Redis
- Cloudflare tunnel · observability stack
-```
+The agent is OpenClaw, running on `openclaw-gateway`. It routes
+between three models. `deepseek-v4-flash` takes every message first and handles the
+simple stuff itself. It hands multi-step debugging and reasoning to `deepseek-v4-pro`,
+and anything over about 15k tokens of input to a Kimi long-context model. The handoff
+is just an exec call: the orchestrator runs `openclaw agent --agent <id>` on itself.
 
-## Two Clusters, Two Trust Levels
+It has seven MCP servers: Grafana, one per Kubernetes cluster, Woodpecker, GitHub,
+Notion, and Plane.
 
-hetzner and homelab are both k3s, but the agent's access to each is intentionally
-lopsided. On hetzner — the cluster actually running production traffic — the
-ServiceAccount OpenClaw authenticates as gets a ClusterRole called `openclaw-reader`:
-get/list/watch on pods, services, deployments, jobs, nodes, events, and pod logs, plus
-`metrics.k8s.io` for `kubectl top`. No secrets. No write verbs at all. If the agent
-needs to actually change something on hetzner, it has to go through a different door
-entirely (below).
+## What it can do on production
 
-On homelab, the same ClusterRole name carries real write permissions:
-create/update/patch/delete on deployments, statefulsets, services, configmaps, PVCs,
-jobs, and ingresses — but still explicitly no Secret access, no Namespace
-create/delete, no cluster-admin. That's not an oversight; the RBAC manifest says so
-directly in its own comments. homelab is a CI/build cluster with nothing
-customer-facing on it (Plane included — it's internal, tailnet-only), so letting the
-agent actually deploy things there is a reasonable blast radius. hetzner is not, so it
-doesn't get that. One thing the rebuild fixed along the way: the kubeconfig now points
-at `nuc-b`'s real Tailscale-issued cert instead of the old Mac cluster's
-self-signed one, so this is the one connection that no longer needs
-`insecure-skip-tls-verify`.
+On hetzner, the agent's kubeconfig is bound to a ClusterRole called `openclaw-reader`.
+It can get, list, and watch most things (pods, deployments, jobs, nodes, events), read
+pod logs, and use `kubectl top`. It has no write verbs and can't read Secrets.
 
-## Getting Code Out the Door
-
-The actual shipping path — GitHub Actions building and pushing an image, opening a
-deploy PR against homelab, Woodpecker auto-merging and applying it — is laid out on
-the [architecture page](/architecture). It's mostly boring, which is the point, but
-the mesh it runs on isn't always forgiving: a CoreDNS rule scoped to `IN A` only
-recently broke every deploy silently, because `kubectl`'s dual-stack resolver also
-queries `AAAA`, and an unmatched AAAA query fell through to a plugin that answered
-NXDOMAIN instead of NODATA — a hard failure on a record type nothing was even using.
-That's the kind of bug that only shows up once you've built enough infrastructure to
-have DNS plugins with fallthrough semantics in the first place.
-
-## The Agent Layer
-
-OpenClaw is the thing actually running on openclaw-gateway: three routed models
-behind one Slack-facing identity. The default agent (`deepseek-v4-flash`) triages
-everything — status checks, quick kubectl calls, memory recall — and delegates out
-for anything heavier: `deepseek-v4-pro` for multi-step reasoning and debugging,
-`kimi-k2` for anything over roughly 15k tokens or a full repo dropped into chat.
-Routing is just an exec call the orchestrator makes to itself, not a separate
-service.
-
-It's wired into seven MCP servers — Grafana, both Kubernetes clusters, Woodpecker,
-GitHub, Notion, and Plane — the same ones, as it happens, that the Claude Code session
-writing this page has access to. Same backends, same scopes, two different front
-doors.
-
-## Letting an Agent Touch Production
-
-hetzner doesn't hand out a kubeconfig with write access at all. Instead there's a
-single SSH key, installed with a `command=` restriction in `authorized_keys` that
-routes everything through a dispatcher script — no interactive shell, ever.
-`SSH_ORIGINAL_COMMAND` gets parsed against an explicit case statement with seven
-named operations: cluster-status, pod-logs, disk-usage, woodpecker-health,
-victoria-health, db-ro, and rollout-restart. Anything else is denied and logged.
-
-Two of those are worth calling out. `rollout-restart` checks the namespace/deployment
-pair against a hardcoded allowlist — the seven production apps plus the three
-Woodpecker components — so the agent can restart `deckforge` but not `coredns`.
-`db-ro` enforces read-only twice over: a regex blocklist rejects anything that looks
-like INSERT/UPDATE/DELETE/DROP/ALTER/GRANT/COPY before it ever reaches Postgres, and
-the connection itself authenticates as `openclaw_ro`, a role with no write grants at
-all. Belt and suspenders — either check alone would probably be enough, but the point
-of giving an agent SSH access is not having to trust that one clever prompt won't
-find the gap in the other.
+Anything that changes state goes over SSH instead. The agent has one key on the VPS,
+and `authorized_keys` pins that key to a `command=` that runs a dispatcher script, so
+it never gets a shell. The dispatcher looks at `SSH_ORIGINAL_COMMAND`, logs it, and
+only accepts seven operations:
 
 ```text
- OpenClaw agent --ssh hetzner "<cmd> <args>"--> dispatcher
-                                                  (command= restricted,
-                                                   no shell, ever)
-                        |
-        +----------------------+----------------------------+
-        |                                                    |
-  read-only ops                                      rollout-restart
-  cluster-status, pod-logs,                    hardcoded allowlist: the
-  disk-usage, woodpecker-health,                7 production apps + the
-  victoria-health                               3 Woodpecker components
-        |
-        v
-  db-ro <database> <sql>
-  regex blocklist + read-only
-  Postgres role (openclaw_ro)
+cluster-status                         node + pod summary
+pod-logs <namespace> <pod> [lines]     recent log lines
+disk-usage                             host disk usage
+woodpecker-health                      Woodpecker pods and service
+victoria-health                        VictoriaMetrics stack
+rollout-restart <namespace> <deploy>   restart, allowlisted deployments only
+db-ro <database> <sql>                 read-only query
 ```
 
-## Networking as the Trust Boundary
+Anything else is denied and logged.
 
-Tailscale is what actually makes this workable. Every private surface — the
-Woodpecker UI, both clusters' APIs, Grafana — sits only on the tailnet, reachable by
-device identity rather than by anything resembling a public port. The only thing
-Cloudflare's tunnel exposes is `ci.byah.org`, and even that's narrowed at the nginx
-layer to `/hook` and `/authorize`; everything else 404s before it reaches Woodpecker.
+`rollout-restart` checks the namespace and deployment against a hardcoded list: the
+app deployments plus the three Woodpecker components. It can restart `deckforge`. It
+can't restart `coredns`.
 
-Internal-only hostnames get the same treatment through Tailscale's Split DNS:
-`grafana.byah.org` and `plane.byah.org` resolve only for tailnet devices, answered by
-a dnsmasq instance running directly on `nuc-b` rather than inside the cluster — any
-homelab node's IP would work equally, since Traefik's ingress runs on all three via
-k3s's built-in ServiceLB, but `nuc-b` is a stable-enough anchor. (This replaced the
-old openclaw-node/Mac version of the same idea, which existed to work around a
-Rancher Desktop host-networking bug that doesn't exist on bare-metal k3s.) Neither
-hostname has a public DNS record, and it's not because someone remembered to lock it
-down. There's just nothing there to find.
+`db-ro` has two checks. The script rejects any SQL containing INSERT, UPDATE, DELETE,
+DROP, ALTER, GRANT, COPY, BEGIN, SET ROLE, and a handful of others. Then it connects as
+`openclaw_ro`, a Postgres role with no write grants. The regex is easy to get around
+and the role alone would probably be enough. I have both anyway, so one mistake in
+either place doesn't open up writes.
 
-## What's Still Moving
+## What it can do on homelab
 
-The five-host picture above replaced an earlier one. openclaw-node used to be this
-same 2017 MacBook Pro running solo as its own k3s cluster via Rancher Desktop —
-including, for a while, the OpenClaw Gateway process itself, running as a LaunchAgent
-on the same box that was supposed to be a disposable build node, pending a cutover to
-openclaw-gateway once that machine was confirmed healthy. That cluster died for good.
-The fix wasn't nursing it back to health; it was wiping the Mac, installing Ubuntu
-Server, buying two Intel NUCs, and standing up `homelab` as an actual three-node
-cluster with `homelab-mac` as just one member of it. The gateway cutover happened
-along the way, by necessity — there's no macOS left on that machine to run a
-LaunchAgent on.
+The homelab cluster uses the same ClusterRole name with a lot more in it. On top of
+reading, the agent can create, update, patch, and delete deployments, statefulsets,
+services, configmaps, PVCs, jobs, and ingresses. It still can't read Secrets, create
+or delete namespaces, or do anything cluster-admin. Secrets and namespaces stay manual.
 
-Not every trade-off from that rebuild is resolved, just made deliberately. Postgres
-and Redis on homelab run as single-instance StatefulSets pinned to `homelab-mac`
-rather than anything HA (CloudNativePG, Redis Sentinel) — if that node goes down,
-both go down with it until it's back. That's written into the repo's own decision
-record, not left implicit, with the explicit call to revisit only if node-reboot
-downtime actually becomes painful.
+Homelab is where the builds and internal tools live. Nothing public runs there, so if
+the agent breaks something, I lose some CI time and Plane is down for a while.
 
-None of that is a problem to hide. A homelab that's honest about which parts are
-load-bearing and which parts are still being poured is more useful than one that
-pretends to be finished.
+## Network
+
+Both cluster APIs, the Woodpecker UI, and Grafana are only reachable from the tailnet.
+The Cloudflare tunnel exposes the public apps and `ci.byah.org`, and nginx in front of
+Woodpecker only passes `/hook` and `/authorize`. Everything else on that hostname 404s.
+
+`grafana.byah.org` and `plane.byah.org` have no public DNS records. Tailscale Split DNS
+sends those lookups to dnsmasq running as a systemd service on `nuc-b`, which answers
+with a homelab node IP. Traefik runs on all three nodes through k3s's ServiceLB, so
+any node IP works.
+
+## Things that have broken
+
+A custom CoreDNS rule once broke every deploy without an obvious error. The rule only
+matched `IN A` queries. `kubectl` asks for both A and AAAA, and the AAAA query fell
+through to a plugin that answered NXDOMAIN instead of NODATA. NXDOMAIN means "this
+name doesn't exist," so the lookup failed, over a record type nothing used.
+
+## Known gaps
+
+On homelab, Postgres and Redis are single StatefulSets on `homelab-mac`. No
+CloudNativePG, no Sentinel. If that node goes down, they go down with it. That's a
+written-down decision in the repo, to revisit if reboot downtime ever actually becomes
+a problem.
+
+The `rollout-restart` allowlist is behind. reliquary-works, games, and meandering-megan
+aren't on it, so the agent can see them but can't restart them.

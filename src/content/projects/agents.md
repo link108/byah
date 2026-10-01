@@ -1,7 +1,7 @@
 ---
 title: agents
 status: active
-summary: Local CLI and server tooling for running coding agents through a staged, workspace-based workflow.
+summary: CLI and local server that run a coding agent through fixed phases (plan, implement, verify, review, push) in an isolated container.
 stack:
   - TypeScript
   - tsx
@@ -13,28 +13,27 @@ links:
 featured: false
 ---
 
-**tl;dr**: I built this to make coding agents feel more like a normal local development tool instead of a one-off demo glued to a chat window.
-
-I wanted something that could take a real task, spin up a workspace, run through a plan/implement/verify/review loop, and leave behind enough logs and state that I could tell what actually happened.
-
-At the core, this is a CLI and small local server for managing agent-driven tasks. A task gets its own workspace and branch, moves through explicit phases, and can be watched from the terminal or a lightweight web UI. I like that the flow is opinionated instead of magical. If an agent is going to touch code, I want the steps to be visible.
+`agents` takes a task, either a markdown spec or a ticket found in Notion, and runs a
+coding agent through the same sequence every time:
 
 ```text
-   CLI / web UI
-        |
-        v
-   local server  <---- host Claude credentials
-        |              (reused inside devcontainer)
-        v
- task workspace (own branch)
-        |
-        v
- plan -> implement -> verify -> review
-        |
-        v
-   logs + state (survives restarts)
+workspace_setup -> plan -> implement -> verify -> review (round 1)
+  -> review (round 2) -> final_verify -> push -> complete
 ```
 
-A big part of the project is dealing with the boring operational stuff that usually gets skipped. There is work here around devcontainers, host-backed auth, log streaming, worker resilience, and keeping the CLI thin enough that the server owns the messy parts. That is the stuff that starts to matter as soon as you try to use agents repeatedly instead of treating them like a novelty.
+Each task gets its own git workspace and branch, and the agent works inside the
+target repo's devcontainer. The phase order is enforced by a small state machine, so
+a task can't jump from implement to push without going through verify and both
+review rounds. After the push there are commands for the parts that come next:
+`task-pr-comments` hands GitHub review comments back to the agent, and there's also
+`task-amend`, `task-rebase`, and `task-resume`.
 
-I’m also trying to keep it simple. Most of it is plain TypeScript, some React for the TUI, and a lot of markdown task specs that double as a backlog. It is still rough in places, and some of the interesting work is clearly about making the system survive restarts, retries, and half-finished tasks without turning into a pile of hidden state.
+The CLI is thin. A local server owns the jobs, and the terminal UI (React via Ink)
+just watches them, with logs streamed live. Workers used to be child processes of the
+server, so restarting the server killed every running task and left their containers
+running with nothing driving them. Now workers are detached processes, job state is on
+disk, and the server reattaches to whatever was running when it comes back up.
+
+The agent inside the container uses the subscription login from my Mac instead of an
+API key. On macOS that token lives in the Keychain, which a Linux container can't
+read, so a preflight step exports it to a file the container can mount.

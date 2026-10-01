@@ -1,7 +1,7 @@
 ---
 title: landlordlog
 status: active
-summary: Rental management app for small landlords, with a calm system-of-record approach and a lot of the boring infrastructure already in place.
+summary: Rent, maintenance, and records for landlords with 1-20 units, plus a tenant portal and per-job links for vendors.
 stack:
   - Next.js
   - TypeScript
@@ -16,29 +16,28 @@ links:
 featured: false
 ---
 
-**tl;dr**: I’m building this as a calmer way to keep track of a small rental portfolio without turning it into a bloated property-management circus.
+LandLordLog is property management for people with a handful of units, roughly 1 to
+20. The product doc's ground rules are "calm, boring, trustworthy UX" and "system of
+record over optimization," and it lists explicit non-goals alongside the features.
 
-I wanted something that felt more like a dependable record than a “platform.” Most landlord software seems to either sprawl into a giant suite or stay weirdly shallow. I was more interested in the boring middle: properties, units, rent, maintenance, notes, photos, summaries, and the handful of things that actually matter month to month.
+Landlords track properties and units, rent, late fees (which can be overridden per rent record),
+maintenance, notes, photos, and documents, and get a monthly summary. Reminders
+nudge them when something needs attention.
 
-At this point it has real shape. There’s a signed-in app for tracking rent, maintenance, summaries, maps, late fees, notes, photos, and documents, plus all the less glamorous plumbing underneath like auth, billing, email, background jobs, storage, and tests. A lot of the work here is really about making the operational stuff solid enough that the domain features can stay simple.
+Two other kinds of people can use it:
 
-```text
-      landlord
-          |
-          v
-      property ---> units
-          |            |
-          v            v
-   rent tracking   maintenance
-          |            |
-          +-----+------+
-                v
-         monthly summary
+- **Tenants** get an invite, log in to their own portal, and submit and follow
+  maintenance requests.
+- **Vendors** don't get accounts. They get a link to one specific job, showing the
+  property, unit, urgency, and entry permission, where they can accept or decline it
+  and post updates.
 
- platform underneath: auth, billing (Stripe),
- storage (S3), email, background jobs
-```
+Properties can also get an unlisted public page (behind a token and excluded from
+search engines) that lists nearby restaurants, cafes, bars, groceries, and parks.
 
-The part I like most is that I’ve tried to keep the scope opinionated. Photos are for property condition and maintenance, not a generic file dump. The UX is meant to be calm and pretty boring on purpose. I’m not trying to build software for huge property managers with twenty dashboards and a fake sense of productivity.
+There's also the start of AI-assisted search: a retrieval module that chunks and
+embeds documents into Qdrant, exposed through API routes so far.
 
-It’s still uneven, which feels honest. The public-facing homepage is basically a waitlist page, while the actual app has more of the real product thinking in it. Some features are clearly further along than others, but that is part of the project: I’d rather build the useful, durable parts first than make it look finished before it is.
+Under all of that is a lot of plumbing: auth, organizations, Stripe billing, S3
+storage with presigned uploads, email, BullMQ background workers, audit logging,
+feature flags, rate limiting, and data retention.

@@ -1,7 +1,7 @@
 ---
 title: homelab
 status: active
-summary: Personal k3s setup for keeping a small cluster and a Hetzner box understandable, repeatable, and not too mysterious.
+summary: The Kubernetes manifests, CI pipelines, and host setup for both of my k3s clusters.
 stack:
   - Kubernetes
   - k3s
@@ -14,32 +14,38 @@ links:
 featured: false
 ---
 
-**tl;dr**: I built this to keep my k3s setup and VPS deploy flow understandable enough that I can bring it back without a bunch of guesswork.
+This repo holds everything that runs the other projects: k3s manifests for both
+clusters, the Woodpecker pipelines that deploy to them, and the scripts that set up
+the machines underneath. [How It Fits Together](/architecture) covers how a deploy
+moves through it, and [How I Actually Run This](/development) covers the machines and
+the agent.
 
-I wanted one place for the unglamorous infrastructure work: cluster layout, app manifests, bootstrap scripts, secrets, and the steps that turn a side project into something I can actually run again after a bad change or a fresh machine.
-
-Most of it is a GitOps-style k3s layout with separate cluster entrypoints, shared infra, and app overlays. What makes it feel useful to me is that it does not stop at Kubernetes YAML. It also includes the day-to-day ops glue around it: bootstrapping a Hetzner VPS, getting k3s running, wiring in Cloudflare and Tailscale, and keeping deploys simple enough that I can still tell what is happening.
+Each cluster has one kustomize entrypoint under `k3s/clusters/`, which pulls in
+shared infrastructure from `k3s/infra/` and per-app overlays from `k3s/apps/`. The
+image tag in each app overlay is the line that app deploy PRs change.
 
 ```text
- k3s/clusters/hetzner  (entrypoint)
-          |
-   +------+------+
-   |             |
-   v             v
- k3s/infra    k3s/apps
- (coredns,    (byah, deckforge,
-  woodpecker,  landlordlog, ...)
-  cloudflared)
-          |
-          v
-   kubectl apply -k
-          |
-          v
-  Hetzner VPS (k3s node)
+k3s/
+  clusters/
+    hetzner/     apps + woodpecker, cloudflared, coredns-custom,
+                 sealed-secrets, backing-services
+    homelab/     woodpecker agent, buildkit, backing-services
+                 (Plane and monitoring are applied separately)
+  infra/         shared pieces, with per-cluster overlays
+  apps/          one directory per app, base + overlays/<cluster>
 ```
 
-I’ve been trying to keep the automation opinionated but not magical. There’s a repeatable converge path for the VPS, but the cluster apply is still pretty manual on purpose. Part of that is caution, and part of it is taste. I’d rather have a setup that is a little rough than one that hides too much when something breaks.
+Outside `k3s/` there's the rest of it: converging the Hetzner VPS, installing k3s,
+Cloudflare Tunnel and Tailscale setup, the dnsmasq resolver on `nuc-b`, scripts for
+creating app databases on each cluster, and the config, RBAC, and SSH dispatcher for
+the OpenClaw agent.
 
-There are also a few choices in here that feel very personal-homelab to me, like running Postgres and Redis on the host and exposing them back into the cluster instead of pretending every layer needs to be containerized. It is not the cleanest model in the world, but it keeps the stack smaller and matches what I actually need.
+Some things are done differently on each cluster. On the VPS, Postgres and Redis run
+as systemd services on the host, and the cluster reaches them through a Service with
+no selector and a hand-written EndpointSlice. On homelab they're StatefulSets on the
+one node that's allowed to hold data. Apps use the same DNS names on both and can't
+tell the difference.
 
-This is still in progress. Secrets are still in that "good enough for now" phase, the Hetzner path is more polished than the home setup, and some workflows are still settling down. That’s fine. The point is to have something I can keep tightening up as the rest of my projects change.
+Secrets are partway through a move to Sealed Secrets. Some apps have sealed secrets
+committed already. The rest, along with the homelab database credentials, still get
+created by hand with a cluster-admin kubeconfig from the templates in the repo.

@@ -1,64 +1,74 @@
 ---
 title: How It Fits Together
 eyebrow: Overview
-summary: How the workstation, project repos, CI, and cluster fit together.
+summary: How a push to main ends up running in production, and what runs where.
 ---
 
-Most of what I build goes through the same small pipeline. But "the cluster" is
-actually two clusters — a single VPS and a three-node cluster of repurposed
-hardware — plus a laptop that does nothing but run an AI agent with its own scoped
-access to both. Here's the real shape of it.
+Every app on this site deploys the same way, and none of them can deploy themselves.
+An app's CI can build an image and push it to Docker Hub. To get that image running,
+it has to open a pull request.
+
+Here's what happens after a push to `main`:
+
+1. Woodpecker runs the app's pipeline on a build agent in my homelab: install, lint,
+   typecheck, test, build the image, push it to Docker Hub tagged with the short
+   commit SHA.
+2. The last step clones the [homelab](/projects/homelab/) repo, changes the image tag
+   in that app's kustomize overlay, and opens a PR called `deploy(app):<sha>`.
+3. Woodpecker checks the PR. If it only touches image-tag overlays and every tag in it
+   exists on Docker Hub, it squash-merges itself. Anything else (a new manifest, a
+   config change) sits there until I merge it.
+4. The merge kicks off the deploy pipeline on a second Woodpecker agent that lives in
+   the production cluster. It reads the `deploy(...)` entries out of the commit
+   message, runs migrations for those apps, and applies the manifests.
 
 ```text
-   dev-setup (laptop)
-        |
-        | write, build, commit
-        v
-   GitHub  (app repos + homelab)
-        |
-        | CI: test, build image, push, open deploy PR
-        v
-   homelab repo ----------> Woodpecker (on hetzner)
-                                  |
-                                  | kubectl apply -k, per app
-                                  v
-        +---------------------------------------------------+
-        |                Tailscale tailnet                    |
-        |                                                      |
-        v                                                      v
-   hetzner (Hetzner VPS, k3s)                     homelab (3-node k3s)
-   byah · deckforge · landlordlog                  nuc-a · nuc-b · homelab-mac
-   bodega-bartender · slopyard                     Woodpecker build agent · BuildKit
-   game-theory-sim · reliquary-works                Plane · Grafana/VictoriaMetrics
-   games · meandering-megan
-   host Postgres/Redis · Cloudflare tunnel
-        ^
-        | ssh, dispatcher-restricted commands only
-        |
-   openclaw-gateway (headless Linux laptop)
-   OpenClaw agent + 7 MCP servers + Slack
+ push to main
+      |
+      v
+ [homelab agent]  test, build, push image ---------> Docker Hub
+      |
+      v
+ PR to homelab repo: deploy(app):<sha>
+      |
+      | tag-only change + tag exists?  yes -> auto-merge
+      |                                no  -> wait for me
+      v
+ [hetzner agent]  migrate, kubectl apply -k
+      |
+      v
+ running in production
 ```
 
-[dev-setup](/projects/dev-setup/) is the machine I write everything on — nothing here
-ever gets deployed itself. Each project lives in its own repo with its own stack, but
-they share the same path out: CI tests the code, builds a container image, pushes it,
-and opens a deploy PR against [homelab](/projects/homelab/), which holds the k3s
-manifests and pins the image tags. Woodpecker auto-merges that PR and applies it to
-**hetzner**, the production cluster.
+So the homelab repo's commit history is a list of every deploy, and no app pipeline
+ever gets a kubeconfig.
 
-The second cluster — yes, also called **homelab**, same as the repo — is three
-machines instead of one now: two Intel NUCs (`nuc-a`, `nuc-b`) plus the 2017 MacBook
-Pro that used to run it solo, wiped and rebuilt as `homelab-mac` running Ubuntu Server
-after its old Rancher Desktop setup died for good. Together they take CI load off the
-VPS (a Woodpecker build agent, BuildKit) and host lower-stakes internal services
-(Plane, the Grafana/VictoriaMetrics stack) — `homelab-mac` carries the actual stateful
-data since it's the most reliable of the three. And **openclaw-gateway** isn't a
-cluster at all — it's a dedicated Linux box running a self-hosted AI agent (OpenClaw)
-that operates both clusters, with deliberately different levels of trust for each.
-That part — the agent layer, the RBAC split, how an autonomous agent gets to touch
-production without a blank check — is its own page:
-[how I actually run this](/development).
+## Two clusters
 
-Not everything runs through this loop. [agents](/projects/agents/) and
-[code-practice](/projects/code-practice/) are local tools I never deploy — they're
-meant to be run, not visited.
+**hetzner** is a single 4 GB Hetzner VPS running k3s. Everything public runs there:
+this site, deckforge, landlordlog, bodega-bartender, slopyard, game-theory,
+reliquary-works, games, and meandering-megan. Traffic comes in through a Cloudflare
+tunnel.
+
+**homelab** is three machines in my house: two Intel NUCs and a 2017 MacBook Pro
+running Ubuntu Server. It does the CI builds (Woodpecker agent plus BuildKit) and runs
+internal tools like Plane and Grafana. Builds go there because the VPS only has 4 GB
+and is busy serving production. And yes, the cluster has the same name as the repo.
+
+## Databases
+
+Every app connects to `postgres.backing-services.svc.cluster.local` and
+`redis.backing-services.svc.cluster.local`, and doesn't know what's behind them. On
+hetzner, those names point at Postgres and Redis running as ordinary systemd services
+on the VPS host, wired into the cluster with a Service that has no selector and a
+hand-written EndpointSlice. On homelab, they're StatefulSets pinned to the MacBook,
+which is the only node allowed to hold data.
+
+## Not part of this
+
+[agents](/projects/agents/), [code-practice](/projects/code-practice/), and
+[dev-setup](/projects/dev-setup/) run on my laptop. [buildings](/projects/buildings/)
+is a script. [collections](/projects/collections/) isn't deployed yet.
+
+There's also an AI agent with limited access to both clusters. What it can and can't
+do is on [How I Actually Run This](/development).

@@ -1,7 +1,7 @@
 ---
 title: deckforge
 status: active
-summary: "AI-assisted Magic: The Gathering deckbuilding platform with deterministic Commander legality, strategy pages, and a playtesting simulator."
+summary: "Magic: The Gathering deckbuilder with an AI agent that can only use cards from the database, and a rules engine that decides legality."
 stack:
   - Next.js
   - TypeScript
@@ -17,32 +17,39 @@ links:
 featured: false
 ---
 
-**tl;dr**: I built this because I wanted an AI deckbuilder for Magic that isn't allowed to make cards up — every suggestion has to come from a real, searchable card database, and every legality claim has to pass an actual rules engine before it counts.
+deckforge is a Commander deckbuilder with an AI agent in it. The agent can only put a
+card in a deck if it pulled that card from the local database, and it doesn't get to
+say whether a deck is legal. A deterministic rules engine does that.
 
-It searches a real database — 32k+ Scryfall-synced cards with full-text and filter support — and builds Commander decks through an agent that can only reference cards it actually retrieved. I didn't want to trust the model's word on whether a deck is legal, so a deterministic `RuleSet` engine makes that call instead, and nothing gets saved as legal without passing it. Saving a deck doesn't even require an account: the editor, importer, and AI chat all work behind an anonymous guest cookie, and signing in is just how you carry a deck to another device.
+The card data is about 32,000 cards synced from Scryfall into Postgres, with full-text
+search and filters for color identity, commander eligibility, format, price, type,
+keyword, set, and rarity. The agent works through typed tools against that database
+and only sees compact results. While it works, it shows short status lines
+("Searching cards…", "Checking legality…") rather than its reasoning. Before it can
+call a deck legal, the deck has to pass the `RuleSet` engine.
 
-```text
- user request
-        |
-        v
- AI agent --tool calls--> card database (32k+ cards)
-        |
-        v
- proposed deck
-        |
-        v
- RuleSet engine (deterministic legality)
-        |
-    legal? --no--> rejected
-        |
-       yes
-        |
-        v
- saved deck (guest cookie or account)
-```
+AI review follows the same order. Deterministic analysis runs first (curve, ramp,
+draw, and removal counts, dead cards, price). Then the model suggests changes, every
+suggested card gets checked against the database again, and accepting a change makes
+a new revision instead of overwriting the deck.
 
-The part I'm proudest of is the Playtesting Lab — seeded Monte Carlo opening hands next to exact hypergeometric land and color-source odds, labeled as odds and not win rates, because that distinction actually matters. AI deck review works the same way in reverse: deterministic analysis runs first, and any AI suggestion gets re-verified against the database before it's offered, with accepted changes landing as a new revision instead of an overwrite.
+The Playtesting Lab deals seeded Monte Carlo opening hands and shows the exact
+hypergeometric odds of hitting your land drops and color sources. The page labels
+these as odds, not win rates.
 
-Under the hood it's a modular monolith — cards, decks, legality, chat, collections, pricing, and affiliates each own their own slice of `src/modules`, and the AI only ever sees compact results from typed tools querying the local database. The Anthropic integration falls back to a deterministic mock when there's no key configured, so local dev and CI don't depend on a live model.
+Other things it does:
 
-It's MVP-complete — card data, legality, the AI agent, affiliates, and collections/simulations are all live, and I've just added email verification and password reset. What I care about most is that the agent gets to propose, but it never gets to decide what's true.
+- You can build without an account. Saving a deck gives your browser an anonymous
+  guest identity, and signing in is only for getting to your decks from another
+  device.
+- It imports plain, MTGO, and Arena lists. If a card name is ambiguous, it shows
+  suggestions and makes you pick.
+- Public decks get strategy pages (early, mid, and late game plans, win conditions,
+  a mulligan guide, weaknesses, upgrades) and 5-star ratings.
+- You can mark the cards you own. Deck pages then show what's missing and what it
+  would cost, with disclosed TCGplayer and eBay affiliate links for buying only those
+  cards.
+
+It's one Next.js app split into modules under `src/modules`. The model sits behind an
+`LLMProvider` interface that falls back to a deterministic mock when there's no API
+key, so local dev and CI don't need a live model. All five planned phases are done.

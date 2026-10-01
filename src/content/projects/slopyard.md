@@ -1,7 +1,7 @@
 ---
 title: slopyard
 status: prototype
-summary: Small Go app for anonymous community reports on whether a website host is “AI Slop” or “Not Slop”.
+summary: Small Go app where people anonymously report whether a website is AI slop.
 stack:
   - Go
   - PostgreSQL
@@ -15,12 +15,17 @@ links:
 featured: false
 ---
 
-**tl;dr**: I built this as a small public utility for tagging websites as AI slop or not, mostly because I wanted a lightweight way to capture that gut-check without turning it into a whole platform.
+You enter a website and see how many people have reported it as "AI Slop" or "Not
+Slop," and you can add your own report. There are no accounts and no comments.
 
-I kept running into sites that felt weirdly hollow and machine-made, and I wanted something simpler than a forum or a long argument about it. The idea here is pretty narrow: search a host, see the community signal, add your own report, move on.
+It's a Go server that renders HTML, with no frontend build step. Postgres stores sites,
+reports, and precomputed totals, and Redis does rate limiting when it's configured.
 
-It’s a plain Go app with server-rendered pages, Postgres underneath, and optional Redis for rate limiting. That part is deliberate. I wanted the whole thing to stay fast and understandable, with no frontend build step and not much between the form and the data.
+Since anyone can report without signing up, most of the code is about making the
+reports mean something. Hosts get normalized before anything is stored: lowercased,
+internationalized names converted to punycode, `www.` stripped, IP addresses
+rejected, and the registrable domain worked out from the public suffix list. That way
+different spellings of the same site count as one site. Submissions are also
+fingerprinted and rate-limited so one person can't pile on votes.
 
-The part I like most is that it stays opinionated without pretending to be definitive. Everything is framed as reports, not facts. There are no accounts, no comment threads, and not much ceremony around submitting something. That keeps it light, but it also means the abuse prevention has to do more work, so a lot of the real effort is in host normalization, fingerprinting, and keeping repeat voting under control.
-
-It still feels like an MVP, which is probably the right size for it. I’d rather keep it small and a little rough than overbuild it into some giant moderation machine.
+Everything on the site is framed as reports from users, not a ruling on the site.

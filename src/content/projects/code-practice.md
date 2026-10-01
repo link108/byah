@@ -1,7 +1,7 @@
 ---
 title: code-practice
 status: stable
-summary: Python CLI for practicing LeetCode problems locally with a small Typer-based workflow.
+summary: Small Python CLI for doing LeetCode problems in Neovim instead of the browser.
 stack:
   - Python
   - Typer
@@ -13,21 +13,19 @@ links:
 featured: false
 ---
 
-**tl;dr**: I built this because practicing in the browser always felt like the wrong environment — I wanted it to feel like normal local development instead.
-
-It's a small Typer-based CLI (`lc`) for fetching, organizing, and running practice problems without leaving the terminal. Each problem gets its own folder — `0001-two-sum`, `0002-add-two-numbers`, and so on — so I end up with an actual workspace instead of a pile of scratch files.
+`lc` is a little Typer CLI for working LeetCode problems locally:
 
 ```text
- lc fetch <slug>
-        |
-        v
-    LeetCode
-        |
-        v
- problems/000N-slug/
-        |
-        v
- edit + lc run (local loop)
+lc login            save LeetCode session cookies
+lc list             browse problems
+lc get 1            fetch a problem and create its folder
+lc open 1           open the solution and README side by side in Neovim
+lc test 1           run the examples locally (--remote runs them on LeetCode)
+lc submit 1         submit
 ```
 
-The dependency list is intentionally tiny: Typer for the CLI, `httpx` for network calls, Rich for output. I didn't want this to become its own project to maintain — just something that removes friction from a habit I actually want to keep up.
+Each problem gets its own folder with the problem statement as a README and a
+solution file. The local test runner loads your solution and runs it against the cases in
+the problem's `tests.json`, so most of the time you don't need to hit LeetCode until you submit.
+
+It depends only on Typer, httpx, and Rich.
