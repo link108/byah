@@ -1,4 +1,5 @@
 ---
+name: blog-post
 description: Turn raw material (a ChatGPT chat link/export, notes, an outline, a rough draft) into a byah.org blog post written in Cameron's voice, versioned in this repo. Use when Cameron shares source material for a blog post or asks to draft/write/edit a blog post.
 ---
 
@@ -8,7 +9,7 @@ Full voice and editorial guide: `references/voice-guide.md`. Read it before draf
 
 Before writing any prose, save whatever Cameron shares — verbatim, unedited — into `blog-sources/<slug>/` at the repo root (create the folder if it doesn't exist). `<slug>` is a short kebab-case handle for the post topic (this becomes the blog post's filename later, so pick something you'd be happy to reuse).
 
-- **ChatGPT share link**: `WebFetch` on a `chatgpt.com/share/...` URL only returns the page `<title>` — the conversation is client-rendered and not present in the fetched HTML. Instead run `python3 .claude/skills/blog-post/scripts/fetch_chatgpt_share.py <url> blog-sources/<slug>/chatgpt-<date>.md`. It downloads the page, decodes the embedded React Router data payload, and writes the full user/assistant transcript verbatim. If it ever fails (ChatGPT changed the page format), fall back to `WebFetch` and note in the saved file that it's a lossy summary, not a verbatim transcript.
+- **ChatGPT share link**: `WebFetch` on a `chatgpt.com/share/...` URL only returns the page `<title>` — the conversation is client-rendered and not present in the fetched HTML. Instead run `python3 .agents/skills/blog-post/scripts/fetch_chatgpt_share.py <url> blog-sources/<slug>/chatgpt-<date>.md`. It downloads the page, decodes the embedded React Router data payload, and writes the full user/assistant transcript verbatim. If it ever fails (ChatGPT changed the page format), fall back to `WebFetch` and note in the saved file that it's a lossy summary, not a verbatim transcript.
 - **Export file** (e.g. a ChatGPT data-export `.json`/`.html`, pasted notes, a doc): save it into the same folder under a descriptive name, as-is.
 - **Multiple sessions for the same post** (follow-ups, edits, additional research): add more files to the folder rather than overwriting what's there. The raw material is the permanent record of what Cameron actually said — never edit it in place.
 

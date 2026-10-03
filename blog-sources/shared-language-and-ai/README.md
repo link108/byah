@@ -18,5 +18,5 @@ After talking it through, the agreed structure for post 3: **shared vocabulary v
 
 ## Notes for drafting
 
-- Same rule as the other series: the chat is a skeleton, not something to lift verbatim, and no invented anecdotes/stats. Verify anything cited as fact (see `../../.claude/skills/blog-post/references/voice-guide.md`).
+- Same rule as the other series: the chat is a skeleton, not something to lift verbatim, and no invented anecdotes/stats. Verify anything cited as fact (see `../../.agents/skills/blog-post/references/voice-guide.md`).
 - If Cameron wants to develop the "shared experience" side further (more examples beyond TV, a stronger positive case, disagreement with the synthesis here), that's the first thing to revise — it's the newest and least source-backed part of the series.
