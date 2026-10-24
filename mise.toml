@@ -1,4 +1,4 @@
 [tools]
-# Matches the version pinned in Dockerfile (node:24-alpine). Astro 7 requires
+# Matches the version pinned in Dockerfile (node:24.22.1-alpine). Astro 7 requires
 # Node >=22.12; 24 is the current Active LTS ("Krypton") - Node 20 is EOL.
-node = "24"
+node = "24.22.1"

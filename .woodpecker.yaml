@@ -23,12 +23,12 @@ labels:
 
 steps:
   - name: install
-    image: node:24-alpine
+    image: node:24.22.1-alpine
     commands:
       - npm ci
 
   - name: history
-    image: node:24-alpine
+    image: node:24.22.1-alpine
     commands:
       # Needs the full clone from the `clone` step above - this must run
       # before docker-build so src/generated/history.json is already in the
@@ -38,22 +38,22 @@ steps:
       - npm run history:generate
 
   - name: generate
-    image: node:24-alpine
+    image: node:24.22.1-alpine
     commands:
       - npx prisma generate
 
   - name: lint
-    image: node:24-alpine
+    image: node:24.22.1-alpine
     commands:
       - npm run lint
 
   - name: typecheck
-    image: node:24-alpine
+    image: node:24.22.1-alpine
     commands:
       - npm run typecheck
 
   - name: build
-    image: node:24-alpine
+    image: node:24.22.1-alpine
     commands:
       - npm run build
 
